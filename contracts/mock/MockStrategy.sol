@@ -22,7 +22,7 @@ contract MockStrategy is BaseStrategy {
     }
 
     function maxRedeem(address owner) public view override returns (uint256) {
-        return Math.min(convertToShares(totalIdle), balanceOf(owner));
+        return Math.min(previewWithdraw(totalIdle), balanceOf(owner));
     }
 
     function setMaxDebt(uint256 _depositLimit) public onlyGovernance {

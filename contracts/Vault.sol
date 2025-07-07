@@ -249,6 +249,7 @@ contract Vault is
             require(strategies[strategy].activation != 0, "Inactive strategy");
 
             uint256 currentDebt = strategies[strategy].currentDebt;
+
             uint256 toWithdraw = Math.min(maxAssets - have, currentDebt);
             if (toWithdraw == 0) continue;
 
@@ -257,6 +258,7 @@ contract Vault is
                 currentDebt,
                 toWithdraw
             );
+
             uint256 strategyLimit = IStrategy(strategy).convertToAssets(
                 IStrategy(strategy).maxRedeem(address(this))
             );
@@ -267,6 +269,7 @@ contract Vault is
                         (unrealisedLoss * strategyLimit) /
                         (toWithdraw - unrealisedLoss);
                 }
+
                 toWithdraw = strategyLimit + unrealisedLoss;
             }
 

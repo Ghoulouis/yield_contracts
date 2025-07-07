@@ -142,9 +142,31 @@ describe("Vault", () => {
     });
 
     it("maxWithdraw() with balance less or equal to total idle returns balance", async () => {
-      let strategyDeposit = amount / 2n;
       await mintAndDeposit(vault, usdc, amount, alice);
       expect(await vault["maxWithdraw(address)"](alice.address)).to.equal(amount);
+    });
+
+    it("maxWithdraw() with custom parameters", async () => {
+      await mintAndDeposit(vault, usdc, amount, alice);
+      await addStrategy(vault, strategy, governance);
+
+      let strategyDeposit = amount / 2n;
+      await addDebtToStrategy(vault, strategy, strategyDeposit, governance);
+
+      expect(await vault["maxWithdraw(address,uint256,address[])"](alice.address, 22n, [await strategy.getAddress()])).to.equal(amount);
+    });
+
+    it("maxWithdraw() with lossy strategy", async () => {
+      let strategyDeposit = amount / 2n;
+      let loss = strategyDeposit / 2n;
+      let totalIdle = amount - strategyDeposit;
+      await mintAndDeposit(vault, usdc, amount, alice);
+      await addStrategy(vault, strategy, governance);
+      await addDebtToStrategy(vault, strategy, strategyDeposit, governance);
+      await setLoss(strategy, loss, governance);
+
+      expect(await vault["maxWithdraw(address)"](alice.address)).to.equal(totalIdle);
+      expect(await vault["maxWithdraw(address,uint256,address[])"](alice.address, 10000, [await strategy.getAddress()])).to.equal(amount);
     });
   });
 });
