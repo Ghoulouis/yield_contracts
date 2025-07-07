@@ -13,6 +13,8 @@ import "./interfaces/IAccountant.sol";
 import "./interfaces/IDepositLimitModule.sol";
 import "./interfaces/IWithdrawLimitModule.sol";
 
+import "hardhat/console.sol";
+
 contract Vault is
     Initializable,
     ERC4626Upgradeable,
@@ -184,6 +186,12 @@ contract Vault is
         return depositLimit - totalAssets_;
     }
 
+    function maxMint(address receiver) public view override returns (uint256) {
+        uint256 maxDepositAmount = maxDeposit(receiver);
+        if (maxDepositAmount == 0) return 0;
+        return convertToShares(maxDepositAmount);
+    }
+
     function deposit(
         uint256 assets,
         address receiver
@@ -200,6 +208,10 @@ contract Vault is
         address[] memory _strategies
     ) public returns (uint256) {
         return _redeem(caller, receiver, owner, shares, maxLoss, _strategies);
+    }
+
+    function maxWithdraw(address owner) public view override returns (uint256) {
+        return _maxWithdraw(owner, 0, new address[](0));
     }
 
     function maxWithdraw(
@@ -679,6 +691,7 @@ contract Vault is
             uint256 withdrawable = IStrategy(strategy).convertToAssets(
                 IStrategy(strategy).maxRedeem(address(this))
             );
+
             assetsToWithdraw = Math.min(assetsToWithdraw, withdrawable);
             require(
                 _assessShareOfUnrealisedLosses(
@@ -733,6 +746,7 @@ contract Vault is
                 address _asset = asset();
                 IERC20(_asset).approve(strategy, assetsToDeposit);
                 uint256 preBalance = IERC20(_asset).balanceOf(address(this));
+
                 IStrategy(strategy).deposit(assetsToDeposit, address(this));
                 uint256 postBalance = IERC20(_asset).balanceOf(address(this));
                 IERC20(_asset).approve(strategy, 0);
@@ -865,6 +879,20 @@ contract Vault is
     function setDepositLimit(uint256 newDepositLimit) public onlyGovernance {
         depositLimit = newDepositLimit;
         emit UpdateDepositLimit(depositLimit);
+    }
+
+    function setDepositLimitModule(
+        address newDepositLimitModule
+    ) public onlyGovernance {
+        depositLimitModule = newDepositLimitModule;
+        emit UpdateDepositLimitModule(depositLimitModule);
+    }
+
+    function setMinimumTotalIdle(
+        uint256 newMinimumTotalIdle
+    ) public onlyGovernance {
+        minimumTotalIdle = newMinimumTotalIdle;
+        emit UpdateMinimumTotalIdle(minimumTotalIdle);
     }
 
     // Emergency Management
