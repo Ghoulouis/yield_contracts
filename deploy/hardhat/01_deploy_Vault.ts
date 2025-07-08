@@ -8,7 +8,7 @@ const deploy: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
 
   let usdc = await get("USDC");
 
-  let timeUnlock = 24 * 60 * 60;
+  let timeUnlock = 7 * 24 * 60 * 60;
 
   await deploy("Vault", {
     contract: "Vault",

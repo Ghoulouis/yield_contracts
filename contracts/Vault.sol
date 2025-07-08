@@ -25,7 +25,7 @@ contract Vault is
     using Math for uint256;
 
     // Constants
-    uint256 public constant MAX_QUEUE = 20;
+    uint256 public constant MAX_QUEUE = 10;
     string public constant API_VERSION = "0.0.1";
     uint256 public constant MAX_PROFIT_UNLOCK_TIME = 365 days;
     uint256 public constant MAX_BPS = 10_000;
@@ -210,6 +210,22 @@ contract Vault is
         return _redeem(caller, receiver, owner, shares, maxLoss, _strategies);
     }
 
+    function redeem(
+        uint256 shares,
+        address receiver,
+        address owner
+    ) public override returns (uint256) {
+        return
+            _redeem(
+                msg.sender,
+                receiver,
+                owner,
+                shares,
+                MAX_BPS,
+                new address[](0)
+            );
+    }
+
     function maxWithdraw(address owner) public view override returns (uint256) {
         return _maxWithdraw(owner, 0, new address[](0));
     }
@@ -232,8 +248,11 @@ contract Vault is
 
         if (withdrawLimitModule != address(0)) {
             return
-                IWithdrawLimitModule(withdrawLimitModule)
-                    .availableWithdrawLimit(owner, maxLoss, _strategies);
+                Math.min(
+                    IWithdrawLimitModule(withdrawLimitModule)
+                        .availableWithdrawLimit(owner, maxLoss, _strategies),
+                    maxAssets
+                );
         }
 
         if (maxAssets <= totalIdle) return maxAssets;
@@ -299,7 +318,12 @@ contract Vault is
         return 0;
     }
 
-    function _totalSupply() internal view returns (uint256) {
+    function totalSupply()
+        public
+        view
+        override(ERC20Upgradeable, IERC20)
+        returns (uint256)
+    {
         return super.totalSupply() - _unlockedShares();
     }
 
@@ -402,6 +426,10 @@ contract Vault is
             uint256 currentTotalDebt = totalDebt;
             uint256 previousBalance = IERC20(_asset).balanceOf(address(this));
 
+            uint256 currentDebt;
+            uint256 assetsToWithdraw;
+            uint256 maxAssetsCanWithdraw;
+
             for (uint256 i = 0; i < queue.length; i++) {
                 address strategy = queue[i];
                 require(
@@ -409,12 +437,11 @@ contract Vault is
                     "Inactive strategy"
                 );
 
-                uint256 currentDebt = strategies[strategy].currentDebt;
-                uint256 assetsToWithdraw = Math.min(assetsNeeded, currentDebt);
-                uint256 maxAssetsCanWithdraw = IStrategy(strategy)
-                    .convertToAssets(
-                        IStrategy(strategy).maxRedeem(address(this))
-                    );
+                currentDebt = strategies[strategy].currentDebt;
+                assetsToWithdraw = Math.min(assetsNeeded, currentDebt);
+                maxAssetsCanWithdraw = IStrategy(strategy).convertToAssets(
+                    IStrategy(strategy).maxRedeem(address(this))
+                );
 
                 uint256 unrealisedLoss = _assessShareOfUnrealisedLosses(
                     strategy,
@@ -501,6 +528,17 @@ contract Vault is
         emit Withdrawn(owner, shares, requestedAssets, 0);
         return requestedAssets;
     }
+
+    function _withdrawFromStrategy(
+        address strategy,
+        uint256 assetsToWithdraw
+    ) internal {
+        uint256 sharesToRedeem = Math.min(
+            IStrategy(strategy).previewWithdraw(assetsToWithdraw),
+            IStrategy(strategy).balanceOf(address(this))
+    }
+
+    
 
     function _processReport(
         address strategy
@@ -972,23 +1010,5 @@ contract Vault is
         require(currentDebt >= assetsNeeded, "Invalid assets needed");
         return
             _assessShareOfUnrealisedLosses(strategy, currentDebt, assetsNeeded);
-    }
-
-    // Override ERC4626 functions
-    function withdraw(
-        uint256,
-        address,
-        address
-    ) public pure override returns (uint256) {
-        revert("Not implemented");
-    }
-
-    // Override ERC4626 functions
-    function redeem(
-        uint256,
-        address,
-        address
-    ) public pure override returns (uint256) {
-        revert("Not implemented");
     }
 }

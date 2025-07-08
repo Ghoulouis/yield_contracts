@@ -82,4 +82,8 @@ contract MockStrategy is BaseStrategy {
 
         emit Withdraw(caller, receiver, owner, assets, shares);
     }
+
+    function harvest() public {
+        totalIdle = IERC20(asset()).balanceOf(address(this));
+    }
 }

@@ -85,3 +85,8 @@ export async function getVaultBalance(vault: Vault, asset: ERC20Mintable): Promi
 export async function getStrategyBalance(strategy: MockStrategy, asset: ERC20Mintable): Promise<bigint> {
   return await asset.balanceOf(await strategy.getAddress());
 }
+
+export async function processReport(vault: Vault, strategy: MockStrategy, signer: HardhatEthersSigner | ethersv6.Wallet) {
+  let tx = await vault.connect(signer).processReport(await strategy.getAddress());
+  return tx.wait();
+}
