@@ -1,5 +1,5 @@
 import { HardhatEthersSigner } from "@nomicfoundation/hardhat-ethers/signers";
-import { ERC20Mintable, MockStrategy, Vault } from "../typechain-types";
+import { Accountant, ERC20Mintable, MockStrategy, Vault } from "../typechain-types";
 import { ethers as ethersv6 } from "ethers";
 import hre from "hardhat";
 
@@ -89,4 +89,20 @@ export async function getStrategyBalance(strategy: MockStrategy, asset: ERC20Min
 export async function processReport(vault: Vault, strategy: MockStrategy, signer: HardhatEthersSigner | ethersv6.Wallet) {
   let tx = await vault.connect(signer).processReport(await strategy.getAddress());
   return tx.wait();
+}
+
+export async function setFee(
+  accountant: Accountant,
+  strategy: MockStrategy,
+  managementFee: bigint,
+  performanceFee: bigint,
+  refundRatio: bigint,
+  signer: HardhatEthersSigner | ethersv6.Wallet
+) {
+  let tx = await accountant.connect(signer).setManagementFee(await strategy.getAddress(), managementFee);
+  await tx.wait();
+  let tx2 = await accountant.connect(signer).setPerformanceFee(await strategy.getAddress(), performanceFee);
+  await tx2.wait();
+  let tx3 = await accountant.connect(signer).setRefundRatio(await strategy.getAddress(), refundRatio);
+  await tx3.wait();
 }

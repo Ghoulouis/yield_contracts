@@ -2,10 +2,12 @@
 pragma solidity ^0.8.24;
 
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+import "@openzeppelin/contracts/utils/math/Math.sol";
 import "../strategy/BaseStrategy.sol";
 import "hardhat/console.sol";
 
 contract MockStrategy is BaseStrategy {
+    using Math for uint256;
     using SafeERC20 for IERC20;
 
     uint public depositLimit;
@@ -85,5 +87,45 @@ contract MockStrategy is BaseStrategy {
 
     function harvest() public {
         totalIdle = IERC20(asset()).balanceOf(address(this));
+    }
+
+    function _convertToAssets(
+        uint256 shares,
+        Math.Rounding rounding
+    ) internal view override returns (uint256) {
+        if (shares == type(uint256).max || shares == 0) {
+            return shares;
+        }
+        uint256 totalSupply_ = totalSupply();
+        uint256 totalAssets_ = totalAssets();
+        if (totalSupply_ == 0) {
+            return shares * 10 ** _decimalsOffset();
+        }
+        uint256 numerator = shares * totalAssets_;
+        uint256 amount = numerator / totalSupply_;
+        if (rounding == Math.Rounding.Ceil && numerator % totalSupply_ != 0) {
+            amount++;
+        }
+        return amount;
+    }
+
+    function _convertToShares(
+        uint256 assets,
+        Math.Rounding rounding
+    ) internal view override returns (uint256) {
+        if (assets == type(uint256).max || assets == 0) {
+            return assets;
+        }
+        uint256 totalSupply_ = totalSupply();
+        uint256 totalAssets_ = totalAssets();
+        if (totalSupply_ == 0) {
+            return assets * 10 ** _decimalsOffset();
+        }
+        uint256 numerator = assets * totalSupply_;
+        uint256 shares = numerator / totalAssets_;
+        if (rounding == Math.Rounding.Ceil && numerator % totalAssets_ != 0) {
+            shares++;
+        }
+        return shares;
     }
 }

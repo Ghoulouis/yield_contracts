@@ -210,22 +210,6 @@ contract Vault is
         return _redeem(caller, receiver, owner, shares, maxLoss, _strategies);
     }
 
-    function redeem(
-        uint256 shares,
-        address receiver,
-        address owner
-    ) public override returns (uint256) {
-        return
-            _redeem(
-                msg.sender,
-                receiver,
-                owner,
-                shares,
-                MAX_BPS,
-                new address[](0)
-            );
-    }
-
     function maxWithdraw(address owner) public view override returns (uint256) {
         return _maxWithdraw(owner, 0, new address[](0));
     }
@@ -385,6 +369,15 @@ contract Vault is
         emit Deposited(receiver, assets, shares);
     }
 
+    function redeem(
+        uint256 shares,
+        address receiver,
+        address owner
+    ) public override returns (uint256) {
+        return
+            _redeem(_msgSender(), receiver, owner, shares, 0, new address[](0));
+    }
+
     function _redeem(
         address caller,
         address receiver,
@@ -429,61 +422,32 @@ contract Vault is
             uint256 currentDebt;
             uint256 assetsToWithdraw;
             uint256 maxAssetsCanWithdraw;
+            uint256 unrealisedLoss;
 
             for (uint256 i = 0; i < queue.length; i++) {
                 address strategy = queue[i];
-                require(
-                    strategies[strategy].activation != 0,
-                    "Inactive strategy"
-                );
 
-                currentDebt = strategies[strategy].currentDebt;
-                assetsToWithdraw = Math.min(assetsNeeded, currentDebt);
-                maxAssetsCanWithdraw = IStrategy(strategy).convertToAssets(
-                    IStrategy(strategy).maxRedeem(address(this))
-                );
-
-                uint256 unrealisedLoss = _assessShareOfUnrealisedLosses(
+                (
+                    assetsNeeded,
+                    requestedAssets,
+                    currentTotalDebt,
+                    unrealisedLoss
+                ) = _redeemHelper(
                     strategy,
-                    currentDebt,
-                    assetsToWithdraw
+                    assetsNeeded,
+                    requestedAssets,
+                    currentTotalDebt
                 );
-
-                if (unrealisedLoss > 0) {
-                    if (
-                        maxAssetsCanWithdraw < assetsToWithdraw - unrealisedLoss
-                    ) {
-                        unrealisedLoss =
-                            (unrealisedLoss * maxAssetsCanWithdraw) /
-                            (assetsToWithdraw - unrealisedLoss);
-                        assetsToWithdraw =
-                            maxAssetsCanWithdraw +
-                            unrealisedLoss;
-                    }
-                    assetsToWithdraw -= unrealisedLoss;
-                    requestedAssets -= unrealisedLoss;
-                    assetsNeeded -= unrealisedLoss;
-                    currentTotalDebt -= unrealisedLoss;
-
-                    if (maxAssetsCanWithdraw == 0 && unrealisedLoss > 0) {
-                        strategies[strategy].currentDebt =
-                            currentDebt -
-                            unrealisedLoss;
-                        emit DebtUpdated(
-                            strategy,
-                            currentDebt,
-                            strategies[strategy].currentDebt
-                        );
-                    }
-                }
 
                 assetsToWithdraw = Math.min(
                     assetsToWithdraw,
                     maxAssetsCanWithdraw
                 );
+
                 if (assetsToWithdraw == 0) continue;
 
                 _withdrawFromStrategy(strategy, assetsToWithdraw);
+
                 uint256 postBalance = IERC20(_asset).balanceOf(address(this));
                 uint256 withdrawn = Math.min(
                     postBalance - previousBalance,
@@ -529,16 +493,56 @@ contract Vault is
         return requestedAssets;
     }
 
-    function _withdrawFromStrategy(
+    function _redeemHelper(
         address strategy,
-        uint256 assetsToWithdraw
-    ) internal {
-        uint256 sharesToRedeem = Math.min(
-            IStrategy(strategy).previewWithdraw(assetsToWithdraw),
-            IStrategy(strategy).balanceOf(address(this))
-    }
+        uint256 assetsNeeded,
+        uint256 requestedAssets,
+        uint256 currentTotalDebt
+    ) internal returns (uint256, uint256, uint256, uint256) {
+        require(strategies[strategy].activation != 0, "Inactive strategy");
+        uint256 currentDebt = strategies[strategy].currentDebt;
+        uint256 assetsToWithdraw = Math.min(assetsNeeded, currentDebt);
+        uint256 maxAssetsCanWithdraw = IStrategy(strategy).convertToAssets(
+            IStrategy(strategy).maxRedeem(address(this))
+        );
+        console.log("assetsToWithdraw", assetsToWithdraw);
+        console.log("maxAssetsCanWithdraw", maxAssetsCanWithdraw);
 
-    
+        uint256 unrealisedLoss = _assessShareOfUnrealisedLosses(
+            strategy,
+            currentDebt,
+            assetsToWithdraw
+        );
+
+        if (unrealisedLoss > 0) {
+            if (maxAssetsCanWithdraw < assetsToWithdraw - unrealisedLoss) {
+                unrealisedLoss =
+                    (unrealisedLoss * maxAssetsCanWithdraw) /
+                    (assetsToWithdraw - unrealisedLoss);
+                assetsToWithdraw = maxAssetsCanWithdraw + unrealisedLoss;
+            }
+            assetsToWithdraw -= unrealisedLoss;
+            requestedAssets -= unrealisedLoss;
+            assetsNeeded -= unrealisedLoss;
+            currentTotalDebt -= unrealisedLoss;
+
+            if (maxAssetsCanWithdraw == 0 && unrealisedLoss > 0) {
+                strategies[strategy].currentDebt = currentDebt - unrealisedLoss;
+                emit DebtUpdated(
+                    strategy,
+                    currentDebt,
+                    strategies[strategy].currentDebt
+                );
+            }
+        }
+
+        return (
+            assetsNeeded,
+            requestedAssets,
+            currentTotalDebt,
+            unrealisedLoss
+        );
+    }
 
     function _processReport(
         address strategy
@@ -578,6 +582,7 @@ contract Vault is
                 gain,
                 loss
             );
+
             totalRefunds = Math.min(
                 totalRefunds,
                 Math.min(
@@ -936,6 +941,11 @@ contract Vault is
         emit UpdateMinimumTotalIdle(minimumTotalIdle);
     }
 
+    function setAccountant(address newAccountant) public onlyGovernance {
+        accountant = newAccountant;
+        emit UpdateAccountant(accountant);
+    }
+
     // Emergency Management
     function shutdownVault() public onlyGovernance {
         depositLimit = 0;
@@ -1010,5 +1020,45 @@ contract Vault is
         require(currentDebt >= assetsNeeded, "Invalid assets needed");
         return
             _assessShareOfUnrealisedLosses(strategy, currentDebt, assetsNeeded);
+    }
+
+    function _convertToAssets(
+        uint256 shares,
+        Math.Rounding rounding
+    ) internal view override returns (uint256) {
+        if (shares == type(uint256).max || shares == 0) {
+            return shares / 10 ** _decimalsOffset();
+        }
+        uint256 totalSupply_ = totalSupply();
+        uint256 totalAssets_ = totalAssets();
+        if (totalSupply_ == 0) {
+            return shares / 10 ** _decimalsOffset();
+        }
+        uint256 numerator = shares * totalAssets_;
+        uint256 amount = numerator / totalSupply_;
+        if (rounding == Math.Rounding.Ceil && numerator % totalSupply_ != 0) {
+            amount++;
+        }
+        return amount;
+    }
+
+    function _convertToShares(
+        uint256 assets,
+        Math.Rounding rounding
+    ) internal view override returns (uint256) {
+        if (assets == type(uint256).max || assets == 0) {
+            return assets * 10 ** _decimalsOffset();
+        }
+        uint256 totalSupply_ = totalSupply();
+        uint256 totalAssets_ = totalAssets();
+        if (totalSupply_ == 0) {
+            return assets * 10 ** _decimalsOffset();
+        }
+        uint256 numerator = assets * totalSupply_;
+        uint256 shares = numerator / totalAssets_;
+        if (rounding == Math.Rounding.Ceil && numerator % totalAssets_ != 0) {
+            shares++;
+        }
+        return shares;
     }
 }

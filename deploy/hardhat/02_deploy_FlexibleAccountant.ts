@@ -10,8 +10,8 @@ const deploy: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
 
   let usdc = await get("USDC");
 
-  await deploy("Accountant", {
-    contract: "Accountant",
+  await deploy("FlexibleAccountant", {
+    contract: "FlexibleAccountant",
     from: deployer,
     log: true,
     autoMine: true,
@@ -20,11 +20,11 @@ const deploy: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
       execute: {
         init: {
           methodName: "initialize",
-          args: [deployer],
+          args: [deployer, usdc.address],
         },
       },
     },
   });
 };
-deploy.tags = ["accountant"];
+deploy.tags = ["flexibleAccountant"];
 export default deploy;

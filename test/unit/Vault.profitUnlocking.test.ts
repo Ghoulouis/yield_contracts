@@ -1,5 +1,15 @@
 import { HardhatEthersSigner } from "@nomicfoundation/hardhat-ethers/signers";
-import { ERC20Mintable, ERC20Mintable__factory, MockStrategy, MockStrategy__factory, Vault, Vault__factory } from "../../typechain-types";
+import {
+  Accountant,
+  Accountant__factory,
+  ERC20Mintable,
+  ERC20Mintable__factory,
+  FlexibleAccountant__factory,
+  MockStrategy,
+  MockStrategy__factory,
+  Vault,
+  Vault__factory,
+} from "../../typechain-types";
 import { getNamedAccounts, network } from "hardhat";
 import hre from "hardhat";
 import { assert, ethers as ethersv6, MaxUint256, parseEther, parseUnits } from "ethers";
@@ -10,6 +20,7 @@ import {
   processReport,
   setDepositLimit,
   setDepositLimitModule,
+  setFee,
   setLock,
   setLoss,
   setMaxDebt,
@@ -30,6 +41,8 @@ describe("Vault", () => {
   let amount = 10n ** 6n;
   let snapshot: SnapshotRestorer;
   let strategy: MockStrategy;
+  let accountant: Accountant;
+  let flexibleAccountant: Accountant;
 
   before(async () => {
     await hre.deployments.fixture();
@@ -39,7 +52,8 @@ describe("Vault", () => {
     usdc = ERC20Mintable__factory.connect((await get("USDC")).address, provider);
     vault = Vault__factory.connect((await get("Vault")).address, governance);
     strategy = MockStrategy__factory.connect((await get("MockStrategy")).address, governance);
-
+    accountant = Accountant__factory.connect((await get("Accountant")).address, governance);
+    flexibleAccountant = Accountant__factory.connect((await get("FlexibleAccountant")).address, governance);
     alice = new ethersv6.Wallet(ethersv6.Wallet.createRandom().privateKey, provider);
     bob = new ethersv6.Wallet(ethersv6.Wallet.createRandom().privateKey, provider);
 
@@ -58,11 +72,10 @@ describe("Vault", () => {
     await snapshot.restore();
   });
 
-  async function createAndCheckProfit(profit: bigint) {
+  async function createAndCheckProfit(profit: bigint, totalFees: bigint = 0n, totalRefunds: bigint = 0n) {
     let initialDebt = (await vault.strategies(await strategy.getAddress())).currentDebt;
     await usdc.connect(governance).mint(await strategy.getAddress(), profit);
     await strategy.connect(governance).harvest();
-
     let tx = await vault.connect(governance).processReport(await strategy.getAddress());
     let receipt = await tx.wait();
     let eventSignature = vault.interface.getEvent("StrategyReported").format();
@@ -75,7 +88,7 @@ describe("Vault", () => {
     expect(parsed?.args!.currentDebt).to.closeTo(initialDebt + profit, 1n);
     expect(parsed?.args!.protocolFees).to.equal(0);
     expect(parsed?.args!.totalFees).to.equal(0);
-    expect(parsed?.args!.totalRefunds).to.equal(0);
+    expect(parsed?.args!.totalRefunds).to.equal(totalRefunds);
   }
 
   async function checkPricePerShare(price: bigint) {
@@ -100,8 +113,32 @@ describe("Vault", () => {
     await expect(await vault.balanceOf(await vault.getAddress())).to.closeTo(expectedBuffer, 1n);
   }
 
+  async function initialSetUp(
+    accountant: Accountant,
+    debt_amount: bigint,
+    managementFee: bigint = 0n,
+    performentFee: bigint = 0n,
+    refundRatio: bigint = 0n,
+    accountantMint: bigint = 0n
+  ) {
+    let amount = parseUnits("10000", 6);
+
+    if (managementFee > 0n || performentFee > 0n || refundRatio > 0n) {
+      await setFee(accountant, strategy, managementFee, performentFee, refundRatio, governance);
+      await vault.connect(governance).setAccountant(await accountant.getAddress());
+    }
+
+    if (accountantMint > 0n) {
+      await usdc.connect(governance).mint(await accountant.getAddress(), accountantMint);
+    }
+
+    await mintAndDeposit(vault, usdc, amount / 10n, alice);
+    await addStrategy(vault, strategy, governance);
+    await addDebtToStrategy(vault, strategy, debt_amount, governance);
+  }
+
   describe("profitUnlocking", () => {
-    let fishAmount = parseUnits("1000", 6);
+    let fishAmount = parseUnits("10000", 6);
     it("test gain no fees no refunds no exitsting buffer", async () => {
       let amount = fishAmount / 10n;
       let firstProfit = fishAmount / 10n;
@@ -117,9 +154,44 @@ describe("Vault", () => {
       expect((await vault.strategies(await strategy.getAddress())).currentDebt).to.equal(0n);
       await checkPricePerShare(2n);
       await checkVaultTotals(0n, amount + firstProfit, amount + firstProfit, amount);
+      await vault.connect(alice)["redeem(uint256,address,address)"](await vault.balanceOf(alice.address), alice.address, alice.address);
+      await checkPricePerShare(1n);
+      await checkVaultTotals(0n, 0n, 0n, 0n);
+      expect(await usdc.balanceOf(alice.address)).to.equal(amount + firstProfit);
+      expect(await usdc.balanceOf(await vault.getAddress())).to.equal(0n);
+    });
 
-      await vault.connect(alice).redeem(alice.address, alice.address, alice.address, await vault.balanceOf(alice.address), 0, []);
-      await checkPricePerShare(2n);
+    it("test gain no fees with refunds accountant not enough shares", async () => {
+      let fishAmount = parseUnits("10000", 6);
+
+      let amount = fishAmount / 10n;
+      let firstProfit = fishAmount / 10n;
+      let managementFee = 0n;
+      let performentFee = 0n;
+      let refundRatio = 10_000n;
+
+      await initialSetUp(flexibleAccountant, amount, managementFee, performentFee, refundRatio, firstProfit / 10n);
+      await createAndCheckProfit(firstProfit, 0n, firstProfit / 10n);
+
+      expect(await vault.convertToAssets(await vault.balanceOf(await vault.getAddress()))).to.equal(firstProfit + firstProfit / 10n);
+
+      await checkPricePerShare(1n);
+      await checkVaultTotals(amount + firstProfit, firstProfit / 10n, amount + firstProfit + firstProfit / 10n, amount + firstProfit + firstProfit / 10n);
+    });
+
+    it("test gain no fees with refunds no buffer", async () => {
+      let fishAmount = parseUnits("10000", 6);
+
+      let amount = fishAmount / 10n;
+      let firstProfit = fishAmount / 10n;
+      let managementFee = 0n;
+      let performentFee = 0n;
+      let refundRatio = 10_000n;
+
+      await initialSetUp(flexibleAccountant, amount, managementFee, performentFee, refundRatio, 2n * amount);
+
+      let totalRefunds = (firstProfit * refundRatio) / 10_000n;
+      await createAndCheckProfit(firstProfit, 0n, totalRefunds);
     });
   });
 });

@@ -1,12 +1,13 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import "./interfaces/IAccountant.sol";
+import "../interfaces/IAccountant.sol";
 import "@openzeppelin/contracts/proxy/utils/Initializable.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-
+import "@openzeppelin/contracts/utils/math/Math.sol";
 import "hardhat/console.sol";
-contract Accountant is IAccountant, Initializable {
+contract FlexibleAccountant is IAccountant, Initializable {
+    using Math for uint256;
     address public governance;
 
     struct Fee {
@@ -24,8 +25,12 @@ contract Accountant is IAccountant, Initializable {
         _;
     }
 
-    function initialize(address _governance) public initializer {
+    function initialize(
+        address _governance,
+        address _asset
+    ) public initializer {
         governance = _governance;
+        asset = _asset;
     }
 
     function report(
@@ -35,16 +40,19 @@ contract Accountant is IAccountant, Initializable {
     ) external returns (uint256 totalFees, uint256 totalRefunds) {
         Fee storage fee = fees[strategy];
 
+        uint256 assetBalance = IERC20(asset).balanceOf(address(this));
+
         if (gain > 0) {
             totalFees = (gain * fee.performanceFee) / base_pbs;
-            console.log("ACCOUNTANT: totalFees", totalFees);
-            return (totalFees, 0);
+            totalRefunds = Math.min(
+                assetBalance,
+                (gain * fee.refundRatio) / base_pbs
+            );
         } else {
             totalRefunds = (loss * fee.refundRatio) / base_pbs;
-            console.log("ACCOUNTANT: totalRefunds", totalRefunds);
-            if (totalRefunds > 0) {
-                IERC20(asset).approve(msg.sender, totalRefunds);
-            }
+        }
+        if (totalRefunds > 0) {
+            IERC20(asset).approve(msg.sender, totalRefunds);
         }
         return (totalFees, totalRefunds);
     }
