@@ -615,16 +615,22 @@ contract Vault is
             sharesToLock = convertToShares(gain + totalRefunds);
         }
 
-        uint256 totalSupply_ = totalSupply();
-        uint256 totalLockedShares_ = balanceOf(address(this));
+        uint256 totalSupply_ = super.totalSupply();
+
         uint256 endingSupply = totalSupply_ +
             sharesToLock -
             sharesToBurn -
             _unlockedShares();
 
+        uint256 totalLockedShares_ = balanceOf(address(this));
+
+        // mint reward
         if (endingSupply > totalSupply_) {
             _mint(address(this), endingSupply - totalSupply_);
-        } else if (totalSupply_ > endingSupply) {
+        }
+
+        // burn reward
+        if (totalSupply_ > endingSupply) {
             uint256 toBurn = Math.min(
                 totalSupply_ - endingSupply,
                 totalLockedShares_
@@ -656,7 +662,8 @@ contract Vault is
                 __currentDebt += totalRefunds;
                 totalIdle = __currentDebt;
             }
-        } else if (loss > 0) {
+        }
+        if (loss > 0) {
             __currentDebt -= loss;
             if (strategy != address(this)) {
                 strategies[strategy].currentDebt = __currentDebt;

@@ -17,7 +17,7 @@ contract Accountant is IAccountant, Initializable {
 
     address public asset;
     mapping(address => Fee) public fees;
-    uint256 public immutable base_pbs = 10000;
+    uint256 public constant BASE_BPS = 10_000;
 
     modifier onlyGovernance() {
         require(msg.sender == governance, "Not governance");
@@ -36,11 +36,11 @@ contract Accountant is IAccountant, Initializable {
         Fee storage fee = fees[strategy];
 
         if (gain > 0) {
-            totalFees = (gain * fee.performanceFee) / base_pbs;
+            totalFees = (gain * fee.performanceFee) / BASE_BPS;
             console.log("ACCOUNTANT: totalFees", totalFees);
             return (totalFees, 0);
         } else {
-            totalRefunds = (loss * fee.refundRatio) / base_pbs;
+            totalRefunds = (loss * fee.refundRatio) / BASE_BPS;
             console.log("ACCOUNTANT: totalRefunds", totalRefunds);
             if (totalRefunds > 0) {
                 IERC20(asset).approve(msg.sender, totalRefunds);

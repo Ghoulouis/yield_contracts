@@ -103,6 +103,7 @@ describe("Vault", () => {
     let vaultDebt = await vault.totalDebt();
     expect(vaultDebt).to.closeTo(totalDebt, 1n);
     let vaultSupply = await vault.totalSupply();
+
     expect(vaultSupply / 10n ** ((await vault.decimals()) - (await usdc.decimals()))).to.closeTo(totalSupply, 1n);
   }
 
@@ -192,6 +193,23 @@ describe("Vault", () => {
 
       let totalRefunds = (firstProfit * refundRatio) / 10_000n;
       await createAndCheckProfit(firstProfit, 0n, totalRefunds);
+      await checkPricePerShare(1n);
+      await checkVaultTotals(amount + firstProfit, totalRefunds, amount + firstProfit + totalRefunds, amount + firstProfit + totalRefunds);
+      expect(await vault.convertToAssets(await vault.balanceOf(vault))).to.equal(firstProfit + totalRefunds);
+      expect(await vault.convertToAssets(await vault.balanceOf(flexibleAccountant))).to.equal(0n);
+      await increaseTimeAndCheckProfitBuffer();
+      await checkPricePerShare(3n);
+      await checkVaultTotals(amount + firstProfit, totalRefunds, amount + firstProfit + totalRefunds, amount);
+      await addDebtToStrategy(vault, strategy, 0n, governance);
+      await checkVaultTotals(0n, amount + firstProfit + totalRefunds, amount + firstProfit + totalRefunds, amount);
+      await checkPricePerShare(3n);
+      expect((await vault.strategies(await strategy.getAddress())).currentDebt).to.equal(0n);
+      await vault.connect(alice)["redeem(uint256,address,address)"](await vault.balanceOf(alice.address), alice.address, alice.address);
+      await checkPricePerShare(1n);
+      await checkVaultTotals(0n, 0n, 0n, 0n);
+      expect(await usdc.balanceOf(alice.address)).to.equal(amount + firstProfit + totalRefunds);
+      expect(await usdc.balanceOf(await vault.getAddress())).to.equal(0n);
+      await vault.connect(alice)["redeem(uint256,address,address)"](await vault.balanceOf(alice.address), alice.address, alice.address);
     });
   });
 });
