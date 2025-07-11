@@ -7,12 +7,10 @@ import "@openzeppelin/contracts-upgradeable/utils/ReentrancyGuardUpgradeable.sol
 import "@openzeppelin/contracts-upgradeable/utils/PausableUpgradeable.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "@openzeppelin/contracts/utils/math/Math.sol";
-
 import "./interfaces/IStrategy.sol";
 import "./interfaces/IAccountant.sol";
 import "./interfaces/IDepositLimitModule.sol";
 import "./interfaces/IWithdrawLimitModule.sol";
-
 import "hardhat/console.sol";
 
 contract Vault is
@@ -25,7 +23,7 @@ contract Vault is
     using Math for uint256;
 
     // Constants
-    uint256 public constant MAX_QUEUE = 10;
+    uint256 public constant MAX_QUEUE = 20;
     string public constant API_VERSION = "0.0.1";
     uint256 public constant MAX_PROFIT_UNLOCK_TIME = 365 days;
     uint256 public constant MAX_BPS = 10_000;
@@ -106,6 +104,7 @@ contract Vault is
     uint8 public decimalsOffset;
 
     mapping(address => StrategyParams) public strategies;
+
     address[] public defaultQueue;
     bool public useDefaultQueue;
     bool public autoAllocate;
