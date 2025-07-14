@@ -31,16 +31,10 @@ contract Vault is
 
     // Roles
     address public governance;
-    address public agent;
     address public beneficiary;
 
     modifier onlyGovernance() {
         require(msg.sender == governance, "Not governance");
-        _;
-    }
-
-    modifier onlyAgent() {
-        require(msg.sender == agent, "Not agent");
         _;
     }
 
@@ -55,7 +49,6 @@ contract Vault is
     event TreasuryTransferred();
     event RateUpdated(uint256 oldRate, uint256 newRate);
     event GovernmentChanged(address newGovernment);
-    event AgentChanged(address newAgent);
     event FeeUpdated(uint256 oldFee, uint256 newFee);
     event StrategyChanged(
         address indexed strategy,
@@ -138,7 +131,6 @@ contract Vault is
     // Initializer
     function initialize(
         address _governance,
-        address _agent,
         IERC20 _asset,
         string memory _name,
         string memory _symbol,
@@ -146,7 +138,6 @@ contract Vault is
         uint256 _profitMaxUnlockTime
     ) public initializer {
         require(_governance != address(0), "Zero address: governance");
-        require(_agent != address(0), "Zero address: agent");
         require(
             _profitMaxUnlockTime <= MAX_PROFIT_UNLOCK_TIME,
             "Profit unlock time too long"
