@@ -131,6 +131,10 @@ contract Vault is
     address public depositLimitModule;
     address public withdrawLimitModule;
 
+    // pendind withdraw
+    uint256 totalPendingWithdraw;
+    mapping(address => uint256) pendingWithdraw;
+
     // Initializer
     function initialize(
         address _governance,
@@ -540,6 +544,24 @@ contract Vault is
             requestedAssets,
             currentTotalDebt,
             unrealisedLoss
+        );
+    }
+
+    function withdrawForUser(address user) public {
+        uint256 assetPendingWithdraw = Math.min(
+            pendingWithdraw[user],
+            convertToAssets(balanceOf(user))
+        );
+        require(assetPendingWithdraw >= totalIdle, "Insufficient assets");
+
+        pendingWithdraw[user] = 0;
+        _redeem(
+            user,
+            user,
+            user,
+            convertToShares(assetPendingWithdraw),
+            0,
+            new address[](0)
         );
     }
 

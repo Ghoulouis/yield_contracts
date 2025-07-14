@@ -1,36 +1,12 @@
 import { HardhatEthersSigner } from "@nomicfoundation/hardhat-ethers/signers";
-import {
-  Accountant,
-  Accountant__factory,
-  ERC20Mintable,
-  ERC20Mintable__factory,
-  FlexibleAccountant__factory,
-  MockStrategy,
-  MockStrategy__factory,
-  Vault,
-  Vault__factory,
-} from "../../typechain-types";
+import { Accountant, Accountant__factory, ERC20Mintable, ERC20Mintable__factory, MockStrategy, MockStrategy__factory, Vault, Vault__factory } from "../../typechain-types";
 import { getNamedAccounts, network } from "hardhat";
 import hre from "hardhat";
-import { assert, ethers as ethersv6, MaxUint256, parseEther, parseUnits } from "ethers";
-import {
-  addDebtToStrategy,
-  addStrategy,
-  mintAndDeposit,
-  processReport,
-  setDepositLimit,
-  setDepositLimitModule,
-  setFee,
-  setLock,
-  setLoss,
-  setMaxDebt,
-  setMinimumTotalIdle,
-  updateDebt,
-  updateMaxDebt,
-} from "../helper";
+import { assert, ethers as ethersv6, parseUnits } from "ethers";
+import { addDebtToStrategy, addStrategy, mintAndDeposit, processReport, setFee } from "../helper";
 import { expect } from "chai";
 import { SnapshotRestorer, takeSnapshot } from "@nomicfoundation/hardhat-network-helpers";
-import { increase } from "@nomicfoundation/hardhat-network-helpers/dist/src/helpers/time";
+
 describe("Vault", () => {
   let vault: Vault;
   let usdc: ERC20Mintable;
@@ -209,7 +185,10 @@ describe("Vault", () => {
       await checkVaultTotals(0n, 0n, 0n, 0n);
       expect(await usdc.balanceOf(alice.address)).to.equal(amount + firstProfit + totalRefunds);
       expect(await usdc.balanceOf(await vault.getAddress())).to.equal(0n);
-      await vault.connect(alice)["redeem(uint256,address,address)"](await vault.balanceOf(alice.address), alice.address, alice.address);
+
+      await expect(vault.connect(alice)["redeem(uint256,address,address)"](await vault.balanceOf(alice.address), alice.address, alice.address)).to.be.revertedWith(
+        "No shares to redeem"
+      );
     });
   });
 });
