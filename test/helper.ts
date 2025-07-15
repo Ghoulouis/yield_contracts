@@ -8,7 +8,7 @@ const { get } = hre.deployments;
 export async function mintAndDeposit(vault: Vault, asset: ERC20Mintable, amount: bigint = 10n ** 6n, signer: HardhatEthersSigner | ethersv6.Wallet) {
   await asset.connect(signer).mint(signer.address, amount);
   await asset.connect(signer).approve(await vault.getAddress(), amount);
-  await vault.connect(signer).deposit(amount, signer.address);
+  return await vault.connect(signer).deposit(amount, signer.address);
 }
 
 export async function mint(asset: ERC20Mintable, amount: bigint = 10n ** 6n, signer: HardhatEthersSigner | ethersv6.Wallet) {

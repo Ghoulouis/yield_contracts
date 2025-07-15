@@ -33,7 +33,9 @@ contract MockStrategy is BaseStrategy {
 
     function maxDeposit(address owner) public view override returns (uint256) {
         if (depositLimit == 0) return type(uint256).max;
-        return depositLimit - totalIdle - totalLocked;
+        uint256 _totalAssets = totalAssets();
+        uint256 _depositLimit = depositLimit;
+        return _depositLimit > _totalAssets ? _depositLimit - _totalAssets : 0;
     }
 
     function totalAssets() public view override returns (uint256) {
