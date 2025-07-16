@@ -3,7 +3,6 @@ pragma solidity ^0.8.24;
 
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "./BaseStrategy.sol";
-import "hardhat/console.sol";
 contract OffChainStrategy is BaseStrategy {
     using SafeERC20 for IERC20;
 
@@ -40,7 +39,6 @@ contract OffChainStrategy is BaseStrategy {
     }
 
     function maxRedeem(address owner) public view override returns (uint256) {
-        console.log("Max redeem:", Math.min(convertToShares(totalIdle), super.maxRedeem(owner)));
         return Math.min(convertToShares(totalIdle), super.maxRedeem(owner));
     }
 
