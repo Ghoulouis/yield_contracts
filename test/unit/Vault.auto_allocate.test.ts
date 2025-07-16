@@ -401,4 +401,3 @@ it("test_deposit__auto_update_debt__min_idle_not_met", async () => {
     console.log("Part 2: OK!");
   });
 });
-
