@@ -1,21 +1,9 @@
 import { HardhatEthersSigner } from "@nomicfoundation/hardhat-ethers/signers";
 import { ERC20Mintable, ERC20Mintable__factory, MockStrategy, MockStrategy__factory, Vault, Vault__factory } from "../../typechain-types";
-import { getNamedAccounts } from "hardhat";
+import { ethers, getNamedAccounts } from "hardhat";
 import hre from "hardhat";
-import { assert, ethers as ethersv6, MaxUint256, parseEther, parseUnits } from "ethers";
-import {
-  addDebtToStrategy,
-  addStrategy,
-  mintAndDeposit,
-  setDepositLimit,
-  setDepositLimitModule,
-  setLock,
-  setLoss,
-  setMaxDebt,
-  setMinimumTotalIdle,
-  updateDebt,
-  updateMaxDebt,
-} from "../helper";
+import { ethers as ethersv6, MaxUint256, parseUnits } from "ethers";
+import { addDebtToStrategy, addStrategy, mintAndDeposit, setDepositLimit, setDepositLimitModule, setLock, setLoss } from "../helper";
 import { expect } from "chai";
 import { SnapshotRestorer, takeSnapshot } from "@nomicfoundation/hardhat-network-helpers";
 describe("Vault", () => {
@@ -25,7 +13,6 @@ describe("Vault", () => {
   let governance: HardhatEthersSigner;
   let alice: ethersv6.Wallet;
   let bob: ethersv6.Wallet;
-  let amount = 10n ** 6n;
   let snapshot: SnapshotRestorer;
   let strategy: MockStrategy;
 
@@ -168,5 +155,29 @@ describe("Vault", () => {
       expect(await vault["maxWithdraw(address)"](alice.address)).to.equal(totalIdle);
       expect(await vault["maxWithdraw(address,uint256,address[])"](alice.address, 10000, [await strategy.getAddress()])).to.equal(amount);
     });
+
+    it("test depost()", async () => {
+      let amount = parseUnits("100", 6);
+      await usdc.connect(alice).mint(alice.address, amount);
+      await usdc.connect(alice).approve(await vault.getAddress(), amount);
+
+      await expect(vault.connect(alice).deposit(amount, alice.address))
+        .to.be.emit(vault, "Deposited")
+        .withArgs(alice.address, amount, await vault.convertToShares(amount));
+    });
+
+    it("test mint() ", async () => {
+      let amount = parseUnits("100", 6);
+      await usdc.connect(alice).mint(alice.address, amount);
+      await usdc.connect(alice).approve(await vault.getAddress(), amount);
+
+      let expectShares = await vault.previewDeposit(amount);
+
+      console.log("expect shares", expectShares);
+
+      await expect(vault.connect(alice).mint(expectShares, alice.address)).to.be.emit(vault, "Deposited").withArgs(alice.address, amount, expectShares);
+    });
+
+    it(" test redeem ", async () => {});
   });
 });

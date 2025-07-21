@@ -4,6 +4,7 @@ import "@typechain/hardhat";
 import "@nomicfoundation/hardhat-chai-matchers";
 import "@nomicfoundation/hardhat-network-helpers";
 import "@nomicfoundation/hardhat-ethers";
+import "hardhat-tracer";
 import dotenv from "dotenv";
 dotenv.config();
 

@@ -10,6 +10,11 @@ const deploy: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
 
   let timeUnlock = 7 * 24 * 60 * 60;
 
+  let maxDepositLogic = await deploy("MaxDepositLogic", {
+    from: deployer,
+    log: true,
+  });
+
   await deploy("Vault", {
     contract: "Vault",
     from: deployer,
@@ -18,12 +23,15 @@ const deploy: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
       execute: {
         init: {
           methodName: "initialize",
-          args: [deployer /* agent */, usdc.address, "LP Vault", "LP", 12, timeUnlock],
+          args: [deployer, usdc.address, "LP Vault", "LP", timeUnlock],
         },
       },
     },
     log: true,
     autoMine: true,
+    libraries: {
+      MaxDepositLogic: maxDepositLogic.address,
+    },
   });
 };
 deploy.tags = ["vault"];

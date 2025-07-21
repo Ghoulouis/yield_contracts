@@ -10,6 +10,7 @@
     "dotenv": "^17.0.1",
     "hardhat": "^2.25.0",
     "hardhat-deploy": "^1.0.4",
+    "hardhat-tracer": "^3.2.1",
     "ts-node": "^10.9.2",
     "typescript": "^5.8.3"
   },
