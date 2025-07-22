@@ -3,6 +3,65 @@ pragma solidity ^0.8.24;
 import "@openzeppelin/contracts/interfaces/IERC4626.sol";
 
 interface IVault is IERC4626 {
+    // Enums
+    enum StrategyChangeType {
+        ADDED,
+        REVOKED
+    }
+
+    event Deposited(address indexed user, uint256 amount, uint256 shares);
+    event RequestedWithdraw(address indexed user, uint256 shares);
+    event Withdrawn(
+        address indexed user,
+        uint256 shares,
+        uint256 amount,
+        uint256 fee
+    );
+    event TreasuryTransferred();
+    event RateUpdated(uint256 oldRate, uint256 newRate);
+    event GovernmentChanged(address newGovernment);
+    event FeeUpdated(uint256 oldFee, uint256 newFee);
+    event StrategyChanged(
+        address indexed strategy,
+        StrategyChangeType changeType
+    );
+    event StrategyReported(
+        address indexed strategy,
+        uint256 gain,
+        uint256 loss,
+        uint256 currentDebt,
+        uint256 protocolFees,
+        uint256 totalFees,
+        uint256 totalRefunds
+    );
+    event DebtUpdated(
+        address indexed strategy,
+        uint256 currentDebt,
+        uint256 newDebt
+    );
+    event UpdateAccountant(address indexed accountant);
+    event UpdateDepositLimitModule(address indexed depositLimitModule);
+    event UpdateWithdrawLimitModule(address indexed withdrawLimitModule);
+    event UpdateDefaultQueue(address[] newDefaultQueue);
+    event UpdateUseDefaultQueue(bool useDefaultQueue);
+    event UpdateAutoAllocate(bool autoAllocate);
+    event UpdateDepositLimit(uint256 depositLimit);
+    event UpdateMinimumTotalIdle(uint256 minimumTotalIdle);
+    event UpdateProfitMaxUnlockTime(uint256 profitMaxUnlockTime);
+    event DebtPurchased(address indexed strategy, uint256 amount);
+
+    function mint(address receiver, uint256 assets) external;
+
+    function burn(address receiver, uint256 assets) external;
+
+    function spendAllowance(
+        address owner,
+        address spender,
+        uint256 value
+    ) external;
+
+    function asset() external view returns (address);
+
     function deposit(
         uint256 assets,
         address receiver
