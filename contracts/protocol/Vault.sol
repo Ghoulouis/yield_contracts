@@ -2,6 +2,7 @@
 pragma solidity ^0.8.24;
 
 import "@openzeppelin/contracts-upgradeable/token/ERC20/extensions/ERC4626Upgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/access/AccessControlUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 import "@openzeppelin/contracts-upgradeable/utils/ReentrancyGuardUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/utils/PausableUpgradeable.sol";
@@ -15,6 +16,7 @@ import "../interfaces/IWithdrawLimitModule.sol";
 
 import "./VaultStorage.sol";
 
+import {Constants} from "./libraries/Constants.sol";
 import {DataTypes} from "./libraries/types/DataTypes.sol";
 import {ERC20Logic} from "./libraries/logic/ERC20Logic.sol";
 import {ERC4626Logic} from "./libraries/logic/ERC4626Logic.sol";
@@ -26,17 +28,18 @@ import {UnlockSharesLogic} from "./libraries/logic/UnlockSharesLogic.sol";
 import {DebtLogic} from "./libraries/logic/DebtLogic.sol";
 
 import {ConfiguratorLogic} from "./libraries/logic/ConfiguratorLogic.sol";
-import "hardhat/console.sol";
 
 import {IVault} from "../interfaces/IVault.sol";
 
-// IVault,
+import "hardhat/console.sol";
+
 contract Vault is
     IVault,
     VaultStorage,
     ERC4626Upgradeable,
     ReentrancyGuardUpgradeable,
-    PausableUpgradeable
+    PausableUpgradeable,
+    AccessControlUpgradeable
 {
     using ERC4626Logic for DataTypes.VaultData;
     using InitializeLogic for DataTypes.VaultData;
@@ -52,13 +55,45 @@ contract Vault is
         IERC20 _asset,
         string memory _name,
         string memory _symbol,
-        uint256 _profitMaxUnlockTime
+        uint256 _profitMaxUnlockTime,
+        address governance
     ) public initializer {
         __ERC20_init(_name, _symbol);
         __ERC4626_init(_asset);
         __ReentrancyGuard_init();
         __Pausable_init();
+        __AccessControl_init();
         vaultData.initialize(_profitMaxUnlockTime);
+
+        _setRoleAdmin(
+            Constants.ROLE_ADD_STRATEGY_MANAGER,
+            Constants.ROLE_GOVERNANCE_MANAGER
+        );
+        _setRoleAdmin(
+            Constants.ROLE_REVOKE_STRATEGY_MANAGER,
+            Constants.ROLE_GOVERNANCE_MANAGER
+        );
+        _setRoleAdmin(
+            Constants.ROLE_ACCOUNTANT_MANAGER,
+            Constants.ROLE_GOVERNANCE_MANAGER
+        );
+        _setRoleAdmin(
+            Constants.ROLE_REPORTING_MANAGER,
+            Constants.ROLE_GOVERNANCE_MANAGER
+        );
+        _setRoleAdmin(
+            Constants.ROLE_DEBT_MANAGER,
+            Constants.ROLE_GOVERNANCE_MANAGER
+        );
+        _setRoleAdmin(
+            Constants.ROLE_MAX_DEBT_MANAGER,
+            Constants.ROLE_GOVERNANCE_MANAGER
+        );
+        _setRoleAdmin(
+            Constants.ROLE_DEPOSIT_LIMIT_MANAGER,
+            Constants.ROLE_GOVERNANCE_MANAGER
+        );
+        _grantRole(Constants.ROLE_GOVERNANCE_MANAGER, governance);
     }
 
     // ERC20 overrides
@@ -70,6 +105,15 @@ contract Vault is
         returns (address)
     {
         return super.asset();
+    }
+
+    function decimals()
+        public
+        view
+        override(ERC4626Upgradeable, IVault)
+        returns (uint8)
+    {
+        return super.decimals();
     }
 
     function totalSupply()
@@ -111,9 +155,9 @@ contract Vault is
     function maxWithdraw(
         address owner,
         uint256 maxLoss,
-        address[] memory strategies
+        address[] memory _strategies
     ) public view returns (uint256) {
-        return vaultData.maxWithdraw(owner, maxLoss, strategies);
+        return vaultData.maxWithdraw(owner, maxLoss, _strategies);
     }
 
     function maxRedeem(
@@ -192,7 +236,11 @@ contract Vault is
         address receiver,
         address owner
     ) public override(ERC4626Upgradeable, IERC4626) returns (uint256) {
-        uint256 assets = _convertToAssets(shares, Math.Rounding.Floor);
+        uint256 assets = vaultData._convertToAssets(
+            shares,
+            Math.Rounding.Floor
+        );
+
         return
             WithdrawLogic.executeRedeem(
                 vaultData,
@@ -225,6 +273,18 @@ contract Vault is
             );
     }
 
+    function convertToAssets(
+        uint256 shares
+    ) public view override(IERC4626, ERC4626Upgradeable) returns (uint256) {
+        return vaultData.convertToAssets(shares);
+    }
+
+    function convertToShares(
+        uint256 assets
+    ) public view override(IERC4626, ERC4626Upgradeable) returns (uint256) {
+        return vaultData.convertToShares(assets);
+    }
+
     // ERC20
 
     function mint(address receiver, uint256 amount) external OnlyVault {
@@ -245,7 +305,7 @@ contract Vault is
 
     // DEBT MANAGEMENT
 
-    function processReport(address strategy) external nonReentrant OnlyVault {
+    function processReport(address strategy) external nonReentrant {
         DebtLogic.ExecuteProcessReport(vaultData, strategy);
     }
 
@@ -331,5 +391,29 @@ contract Vault is
             newDepositLimitModule,
             true
         );
+    }
+
+    function setAccountant(address newAccountant) external {
+        ConfiguratorLogic.ExecuteSetAccountant(vaultData, newAccountant);
+    }
+
+    // VIEW FUNCTIONS
+
+    function strategies(
+        address strategy
+    ) public view returns (DataTypes.StrategyData memory) {
+        return vaultData.strategies[strategy];
+    }
+
+    function pricePerShare() public view returns (uint256) {
+        return vaultData.pricePerShare();
+    }
+
+    function totalDebt() public view returns (uint256) {
+        return vaultData.totalDebt;
+    }
+
+    function totalIdle() public view returns (uint256) {
+        return vaultData.totalIdle;
     }
 }

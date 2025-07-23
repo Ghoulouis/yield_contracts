@@ -62,6 +62,8 @@ interface IVault is IERC4626 {
 
     function asset() external view returns (address);
 
+    function decimals() external view returns (uint8);
+
     function deposit(
         uint256 assets,
         address receiver

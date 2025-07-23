@@ -122,6 +122,8 @@ describe("Vault", () => {
       await mintAndDeposit(vault, usdc, amount, alice);
       await addStrategy(vault, strategy, governance);
       await addDebtToStrategy(vault, strategy, firstProfit, governance);
+      console.log(" debt ", (await vault.vaultData()).totalDebt);
+      console.log(" debt ", await vault.totalDebt());
       await createAndCheckProfit(firstProfit);
       await checkPricePerShare(1n);
       await checkVaultTotals(amount + firstProfit, 0n, amount + firstProfit, amount + firstProfit);
@@ -131,7 +133,7 @@ describe("Vault", () => {
       expect((await vault.strategies(await strategy.getAddress())).currentDebt).to.equal(0n);
       await checkPricePerShare(2n);
       await checkVaultTotals(0n, amount + firstProfit, amount + firstProfit, amount);
-      await vault.connect(alice)["redeem(uint256,address,address)"](await vault.balanceOf(alice.address), alice.address, alice.address);
+      await vault.connect(alice).redeem(await vault.balanceOf(alice.address), alice.address, alice.address);
       await checkPricePerShare(1n);
       await checkVaultTotals(0n, 0n, 0n, 0n);
       expect(await usdc.balanceOf(alice.address)).to.equal(amount + firstProfit);
@@ -180,15 +182,13 @@ describe("Vault", () => {
       await checkVaultTotals(0n, amount + firstProfit + totalRefunds, amount + firstProfit + totalRefunds, amount);
       await checkPricePerShare(3n);
       expect((await vault.strategies(await strategy.getAddress())).currentDebt).to.equal(0n);
-      await vault.connect(alice)["redeem(uint256,address,address)"](await vault.balanceOf(alice.address), alice.address, alice.address);
+      await vault.connect(alice).redeem(await vault.balanceOf(alice.address), alice.address, alice.address);
       await checkPricePerShare(1n);
       await checkVaultTotals(0n, 0n, 0n, 0n);
       expect(await usdc.balanceOf(alice.address)).to.equal(amount + firstProfit + totalRefunds);
       expect(await usdc.balanceOf(await vault.getAddress())).to.equal(0n);
 
-      await expect(vault.connect(alice)["redeem(uint256,address,address)"](await vault.balanceOf(alice.address), alice.address, alice.address)).to.be.revertedWith(
-        "No shares to redeem"
-      );
+      await expect(vault.connect(alice).redeem(await vault.balanceOf(alice.address), alice.address, alice.address)).to.be.revertedWith("No shares to redeem");
     });
   });
 });

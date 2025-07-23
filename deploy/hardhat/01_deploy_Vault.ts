@@ -75,7 +75,7 @@ const deploy: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
       execute: {
         init: {
           methodName: "initialize",
-          args: [usdc.address, "LP Vault", "LP", timeUnlock],
+          args: [usdc.address, "LP Vault", "LP", timeUnlock, deployer],
         },
       },
     },

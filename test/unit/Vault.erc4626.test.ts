@@ -155,7 +155,7 @@ describe("Vault", () => {
       expect(await vault["maxWithdraw(address,uint256,address[])"](alice.address, 10000, [await strategy.getAddress()])).to.equal(amount);
     });
 
-    it("test depost()", async () => {
+    it("depost()", async () => {
       let amount = parseUnits("100", 6);
       await usdc.connect(alice).mint(alice.address, amount);
       await usdc.connect(alice).approve(await vault.getAddress(), amount);
@@ -165,7 +165,7 @@ describe("Vault", () => {
         .withArgs(alice.address, amount, await vault.convertToShares(amount));
     });
 
-    it("test mint() ", async () => {
+    it("mint() ", async () => {
       let amount = parseUnits("100", 6);
       await usdc.connect(alice).mint(alice.address, amount);
       await usdc.connect(alice).approve(await vault.getAddress(), amount);
@@ -175,7 +175,7 @@ describe("Vault", () => {
       await expect(vault.connect(alice)["mint(uint256,address)"](expectShares, alice.address)).to.be.emit(vault, "Deposited").withArgs(alice.address, amount, expectShares);
     });
 
-    it(" test redeem() ", async () => {
+    it("redeem() ", async () => {
       let amount = parseUnits("100", 6);
       await mintAndDeposit(vault, usdc, amount, alice);
 

@@ -157,4 +157,12 @@ library ConfiguratorLogic {
         vault.depositLimitModule = newDepositLimitModule;
         emit IVault.UpdateDepositLimitModule(newDepositLimitModule);
     }
+
+    function ExecuteSetAccountant(
+        DataTypes.VaultData storage vault,
+        address newAccountant
+    ) external {
+        vault.accountant = newAccountant;
+        emit IVault.UpdateAccountant(newAccountant);
+    }
 }

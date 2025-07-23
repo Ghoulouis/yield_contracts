@@ -195,4 +195,11 @@ library ERC4626Logic {
         }
         return shares;
     }
+
+    function pricePerShare(
+        DataTypes.VaultData storage vault
+    ) external view returns (uint256) {
+        return
+            vault._convertToAssets(10 ** vault.decimals(), Math.Rounding.Floor);
+    }
 }

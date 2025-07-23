@@ -12,6 +12,12 @@ library ERC20Logic {
         return IVault(vaultData.addressVault).asset();
     }
 
+    function decimals(
+        DataTypes.VaultData storage vaultData
+    ) internal view returns (uint8) {
+        return IVault(vaultData.addressVault).decimals();
+    }
+
     function totalAssets(
         DataTypes.VaultData storage vaultData
     ) internal view returns (uint256) {
