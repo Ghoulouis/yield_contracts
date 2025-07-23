@@ -81,6 +81,15 @@ contract Vault is
         return super.totalSupply() - UnlockSharesLogic.unlockShares(vaultData);
     }
 
+    function totalAssets()
+        public
+        view
+        override(IERC4626, ERC4626Upgradeable)
+        returns (uint256)
+    {
+        return vaultData.totalIdle + vaultData.totalDebt;
+    }
+
     function maxDeposit(
         address receiver
     ) public view override(ERC4626Upgradeable, IVault) returns (uint256) {
@@ -97,6 +106,14 @@ contract Vault is
         address owner
     ) public view override(ERC4626Upgradeable, IVault) returns (uint256) {
         return vaultData.maxWithdraw(owner);
+    }
+
+    function maxWithdraw(
+        address owner,
+        uint256 maxLoss,
+        address[] memory strategies
+    ) public view returns (uint256) {
+        return vaultData.maxWithdraw(owner, maxLoss, strategies);
     }
 
     function maxRedeem(
@@ -208,6 +225,8 @@ contract Vault is
             );
     }
 
+    // ERC20
+
     function mint(address receiver, uint256 amount) external OnlyVault {
         _mint(receiver, amount);
     }
@@ -236,6 +255,17 @@ contract Vault is
         uint256 maxLoss
     ) external nonReentrant {
         DebtLogic.ExecuteUpdateDebt(vaultData, strategy, targetDebt, maxLoss);
+    }
+
+    function updateMaxDebtForStrategy(
+        address strategy,
+        uint256 newMaxDebt
+    ) external nonReentrant {
+        DebtLogic.ExecuteUpdateMaxDebtForStrategy(
+            vaultData,
+            strategy,
+            newMaxDebt
+        );
     }
 
     function buyDebt(address strategy, uint256 amount) external {
@@ -283,5 +313,23 @@ contract Vault is
 
     function setDepositLimitForce(uint256 depositLimit) external {
         ConfiguratorLogic.ExecuteSetDepositLimit(vaultData, depositLimit, true);
+    }
+
+    function setDepositLimitModule(address newDepositLimitModule) external {
+        ConfiguratorLogic.ExecuteSetDepositLimitModule(
+            vaultData,
+            newDepositLimitModule,
+            false
+        );
+    }
+
+    function setDepositLimitModuleForce(
+        address newDepositLimitModule
+    ) external {
+        ConfiguratorLogic.ExecuteSetDepositLimitModule(
+            vaultData,
+            newDepositLimitModule,
+            true
+        );
     }
 }

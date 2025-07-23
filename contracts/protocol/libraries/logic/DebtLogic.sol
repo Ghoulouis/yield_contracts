@@ -322,4 +322,21 @@ library DebtLogic {
         );
         emit IVault.DebtPurchased(strategy, _amount);
     }
+
+    function ExecuteUpdateMaxDebtForStrategy(
+        DataTypes.VaultData storage vault,
+        address strategy,
+        uint256 newMaxDebt
+    ) external {
+        require(
+            vault.strategies[strategy].activation != 0,
+            "Inactive strategy"
+        );
+        vault.strategies[strategy].maxDebt = newMaxDebt;
+        emit IVault.DebtUpdated(
+            strategy,
+            vault.strategies[strategy].currentDebt,
+            newMaxDebt
+        );
+    }
 }

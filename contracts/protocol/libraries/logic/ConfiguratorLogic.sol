@@ -136,4 +136,25 @@ library ConfiguratorLogic {
         vault.depositLimit = depositLimit;
         emit IVault.UpdateDepositLimit(depositLimit);
     }
+
+    function ExecuteSetDepositLimitModule(
+        DataTypes.VaultData storage vault,
+        address newDepositLimitModule,
+        bool force
+    ) external {
+        if (force) {
+            if (vault.depositLimit != type(uint256).max) {
+                vault.depositLimit = type(uint256).max;
+                emit IVault.UpdateDepositLimit(type(uint256).max);
+            }
+        } else {
+            require(
+                vault.depositLimit == type(uint256).max,
+                "using deposit limit"
+            );
+        }
+
+        vault.depositLimitModule = newDepositLimitModule;
+        emit IVault.UpdateDepositLimitModule(newDepositLimitModule);
+    }
 }

@@ -151,7 +151,6 @@ describe("Vault", () => {
       await addStrategy(vault, strategy, governance);
       await addDebtToStrategy(vault, strategy, strategyDeposit, governance);
       await setLoss(strategy, loss, governance);
-
       expect(await vault["maxWithdraw(address)"](alice.address)).to.equal(totalIdle);
       expect(await vault["maxWithdraw(address,uint256,address[])"](alice.address, 10000, [await strategy.getAddress()])).to.equal(amount);
     });
@@ -173,11 +172,18 @@ describe("Vault", () => {
 
       let expectShares = await vault.previewDeposit(amount);
 
-      console.log("expect shares", expectShares);
-
-      await expect(vault.connect(alice).mint(expectShares, alice.address)).to.be.emit(vault, "Deposited").withArgs(alice.address, amount, expectShares);
+      await expect(vault.connect(alice)["mint(uint256,address)"](expectShares, alice.address)).to.be.emit(vault, "Deposited").withArgs(alice.address, amount, expectShares);
     });
 
-    it(" test redeem ", async () => {});
+    it(" test redeem() ", async () => {
+      let amount = parseUnits("100", 6);
+      await mintAndDeposit(vault, usdc, amount, alice);
+
+      let sharesRedeem = amount / 2n;
+
+      await expect(await vault.connect(alice).redeem(sharesRedeem, alice.address, alice.address))
+        .to.be.emit(vault, "Withdrawn")
+        .withArgs(alice.address, sharesRedeem, sharesRedeem, 0);
+    });
   });
 });

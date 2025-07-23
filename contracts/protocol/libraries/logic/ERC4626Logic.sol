@@ -7,8 +7,11 @@ import {IDepositLimitModule} from "../../../interfaces/IDepositLimitModule.sol";
 import {Math} from "@openzeppelin/contracts/utils/math/Math.sol";
 
 import {DataTypes} from "../types/DataTypes.sol";
-import {ERC20Logic} from "./ERC20Logic.sol";
 import {Constants} from "../Constants.sol";
+import {ERC20Logic} from "./ERC20Logic.sol";
+import {UnrealisedLossesLogic} from "./internal/UnrealisedLossesLogic.sol";
+import "hardhat/console.sol";
+
 library ERC4626Logic {
     using Math for uint256;
     using ERC20Logic for DataTypes.VaultData;
@@ -46,6 +49,15 @@ library ERC4626Logic {
         return vault._maxWithdraw(owner, 0, new address[](0));
     }
 
+    function maxWithdraw(
+        DataTypes.VaultData storage vault,
+        address owner,
+        uint256 maxLoss,
+        address[] memory strategies
+    ) external view returns (uint256) {
+        return vault._maxWithdraw(owner, maxLoss, strategies);
+    }
+
     function maxRedeem(
         DataTypes.VaultData storage vault,
         address owner
@@ -64,7 +76,7 @@ library ERC4626Logic {
         uint256 maxLoss,
         address[] memory _strategies
     ) internal view returns (uint256) {
-        //  require(maxLoss <= MAX_BPS, "Invalid max loss"); // todo set  maxLoss
+        require(maxLoss <= Constants.MAX_BPS, "Invalid max loss");
         uint256 maxAssets = vault._convertToAssets(
             vault.balanceOf(owner),
             Math.Rounding.Floor
@@ -73,7 +85,6 @@ library ERC4626Logic {
         if (maxAssets <= vault.totalIdle) return maxAssets;
         uint256 have = vault.totalIdle;
         uint256 loss = 0;
-
         address[] memory queue = vault.useDefaultQueue ||
             _strategies.length == 0
             ? vault.defaultQueue
@@ -91,7 +102,12 @@ library ERC4626Logic {
             uint256 toWithdraw = Math.min(maxAssets - have, currentDebt);
             if (toWithdraw == 0) continue;
 
-            uint256 unrealisedLoss = 0; // todo add unrealised loss
+            uint256 unrealisedLoss = UnrealisedLossesLogic
+                ._assessShareOfUnrealisedLosses(
+                    strategy,
+                    currentDebt,
+                    toWithdraw
+                );
 
             uint256 strategyLimit = IStrategy(strategy).convertToAssets(
                 IStrategy(strategy).maxRedeem(address(this))
