@@ -119,4 +119,21 @@ library ConfiguratorLogic {
             IVault.StrategyChangeType.REVOKED
         );
     }
+
+    function ExecuteSetDepositLimit(
+        DataTypes.VaultData storage vault,
+        uint256 depositLimit,
+        bool force
+    ) external {
+        if (force) {
+            if (vault.depositLimitModule != address(0)) {
+                vault.depositLimitModule = address(0);
+            }
+        } else {
+            require(vault.depositLimitModule == address(0), "using module");
+        }
+
+        vault.depositLimit = depositLimit;
+        emit IVault.UpdateDepositLimit(depositLimit);
+    }
 }

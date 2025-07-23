@@ -272,4 +272,16 @@ contract Vault is
     function setAutoAllocate(bool autoAllocate) public {
         ConfiguratorLogic.ExecuteSetAutoAllocate(vaultData, autoAllocate);
     }
+
+    function setDepositLimit(uint256 depositLimit) external {
+        ConfiguratorLogic.ExecuteSetDepositLimit(
+            vaultData,
+            depositLimit,
+            false
+        );
+    }
+
+    function setDepositLimitForce(uint256 depositLimit) external {
+        ConfiguratorLogic.ExecuteSetDepositLimit(vaultData, depositLimit, true);
+    }
 }

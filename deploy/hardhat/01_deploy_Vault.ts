@@ -52,6 +52,21 @@ const deploy: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
     log: true,
   });
 
+  let ConfiguratorLogicDeployment = await deploy("ConfiguratorLogic", {
+    from: deployer,
+    log: true,
+  });
+
+  let DebtLogicDeployment = await deploy("DebtLogic", {
+    from: deployer,
+    log: true,
+    libraries: {
+      ERC20Logic: ERC20LogicDeployment.address,
+      ERC4626Logic: ERC4626LogicDeployment.address,
+      UnlockSharesLogic: UnlockSharesLogicDeployment.address,
+    },
+  });
+
   await deploy("Vault", {
     contract: "Vault",
     from: deployer,
@@ -67,12 +82,14 @@ const deploy: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
     log: true,
     autoMine: true,
     libraries: {
-      DepositLogic: DepositLogicDeployment.address,
-      WithdrawLogic: WithdrawLogicDeployment.address,
       ERC20Logic: ERC20LogicDeployment.address,
       ERC4626Logic: ERC4626LogicDeployment.address,
       InitializeLogic: InitializeLogicDeployment.address,
+      DepositLogic: DepositLogicDeployment.address,
+      WithdrawLogic: WithdrawLogicDeployment.address,
       UnlockSharesLogic: UnlockSharesLogicDeployment.address,
+      DebtLogic: DebtLogicDeployment.address,
+      ConfiguratorLogic: ConfiguratorLogicDeployment.address,
     },
   });
 };
