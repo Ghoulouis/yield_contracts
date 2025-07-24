@@ -109,7 +109,6 @@ library WithdrawLogic {
                         currentDebt,
                         assetsToWithdraw
                     );
-
                 if (unrealisedLossesShare > 0) {
                     if (
                         maxWithdraw < assetsToWithdraw - unrealisedLossesShare
@@ -121,6 +120,7 @@ library WithdrawLogic {
                     }
                     assetsToWithdraw -= unrealisedLossesShare;
                     requestedAssets -= unrealisedLossesShare;
+
                     assetsNeeded -= unrealisedLossesShare;
                     currentTotalDebt -= unrealisedLossesShare;
 
@@ -185,7 +185,7 @@ library WithdrawLogic {
         }
 
         vault._burn(owner, shares);
-        vault.totalIdle -= requestedAssets;
+        vault.totalIdle = currentTotalIdle - requestedAssets;
         IERC20(_asset).safeTransfer(receiver, requestedAssets);
 
         emit IVault.Withdrawn(owner, shares, requestedAssets, 0);
