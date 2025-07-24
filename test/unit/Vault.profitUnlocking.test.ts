@@ -7,7 +7,7 @@ import { addDebtToStrategy, addStrategy, mintAndDeposit, processReport, setFee }
 import { expect } from "chai";
 import { SnapshotRestorer, takeSnapshot } from "@nomicfoundation/hardhat-network-helpers";
 
-describe("Vault", () => {
+describe("Profit Unlocking", () => {
   let vault: Vault;
   let usdc: ERC20Mintable;
   let provider = hre.ethers.provider;
@@ -114,81 +114,77 @@ describe("Vault", () => {
     await addDebtToStrategy(vault, strategy, debt_amount, governance);
   }
 
-  describe("profitUnlocking", () => {
+  let fishAmount = parseUnits("10000", 6);
+  it("test gain no fees no refunds no exitsting buffer", async () => {
+    let amount = fishAmount / 10n;
+    let firstProfit = fishAmount / 10n;
+    await mintAndDeposit(vault, usdc, amount, alice);
+    await addStrategy(vault, strategy, governance);
+    await addDebtToStrategy(vault, strategy, firstProfit, governance);
+    await createAndCheckProfit(firstProfit);
+    await checkPricePerShare(1n);
+    await checkVaultTotals(amount + firstProfit, 0n, amount + firstProfit, amount + firstProfit);
+    await increaseTimeAndCheckProfitBuffer();
+    await checkPricePerShare(2n);
+    await addDebtToStrategy(vault, strategy, 0n, governance);
+    expect((await vault.strategies(await strategy.getAddress())).currentDebt).to.equal(0n);
+    await checkPricePerShare(2n);
+    await checkVaultTotals(0n, amount + firstProfit, amount + firstProfit, amount);
+    await vault.connect(alice).redeem(await vault.balanceOf(alice.address), alice.address, alice.address);
+    await checkPricePerShare(1n);
+    await checkVaultTotals(0n, 0n, 0n, 0n);
+    expect(await usdc.balanceOf(alice.address)).to.equal(amount + firstProfit);
+    expect(await usdc.balanceOf(await vault.getAddress())).to.equal(0n);
+  });
+
+  it("test gain no fees with refunds accountant not enough shares", async () => {
     let fishAmount = parseUnits("10000", 6);
-    it("test gain no fees no refunds no exitsting buffer", async () => {
-      let amount = fishAmount / 10n;
-      let firstProfit = fishAmount / 10n;
-      await mintAndDeposit(vault, usdc, amount, alice);
-      await addStrategy(vault, strategy, governance);
-      await addDebtToStrategy(vault, strategy, firstProfit, governance);
-      console.log(" debt ", (await vault.vaultData()).totalDebt);
-      console.log(" debt ", await vault.totalDebt());
-      await createAndCheckProfit(firstProfit);
-      await checkPricePerShare(1n);
-      await checkVaultTotals(amount + firstProfit, 0n, amount + firstProfit, amount + firstProfit);
-      await increaseTimeAndCheckProfitBuffer();
-      await checkPricePerShare(2n);
-      await addDebtToStrategy(vault, strategy, 0n, governance);
-      expect((await vault.strategies(await strategy.getAddress())).currentDebt).to.equal(0n);
-      await checkPricePerShare(2n);
-      await checkVaultTotals(0n, amount + firstProfit, amount + firstProfit, amount);
-      await vault.connect(alice).redeem(await vault.balanceOf(alice.address), alice.address, alice.address);
-      await checkPricePerShare(1n);
-      await checkVaultTotals(0n, 0n, 0n, 0n);
-      expect(await usdc.balanceOf(alice.address)).to.equal(amount + firstProfit);
-      expect(await usdc.balanceOf(await vault.getAddress())).to.equal(0n);
-    });
 
-    it("test gain no fees with refunds accountant not enough shares", async () => {
-      let fishAmount = parseUnits("10000", 6);
+    let amount = fishAmount / 10n;
+    let firstProfit = fishAmount / 10n;
+    let managementFee = 0n;
+    let performentFee = 0n;
+    let refundRatio = 10_000n;
 
-      let amount = fishAmount / 10n;
-      let firstProfit = fishAmount / 10n;
-      let managementFee = 0n;
-      let performentFee = 0n;
-      let refundRatio = 10_000n;
+    await initialSetUp(flexibleAccountant, amount, managementFee, performentFee, refundRatio, firstProfit / 10n);
+    await createAndCheckProfit(firstProfit, 0n, firstProfit / 10n);
 
-      await initialSetUp(flexibleAccountant, amount, managementFee, performentFee, refundRatio, firstProfit / 10n);
-      await createAndCheckProfit(firstProfit, 0n, firstProfit / 10n);
+    expect(await vault.convertToAssets(await vault.balanceOf(await vault.getAddress()))).to.equal(firstProfit + firstProfit / 10n);
 
-      expect(await vault.convertToAssets(await vault.balanceOf(await vault.getAddress()))).to.equal(firstProfit + firstProfit / 10n);
+    await checkPricePerShare(1n);
+    await checkVaultTotals(amount + firstProfit, firstProfit / 10n, amount + firstProfit + firstProfit / 10n, amount + firstProfit + firstProfit / 10n);
+  });
 
-      await checkPricePerShare(1n);
-      await checkVaultTotals(amount + firstProfit, firstProfit / 10n, amount + firstProfit + firstProfit / 10n, amount + firstProfit + firstProfit / 10n);
-    });
+  it("test gain no fees with refunds no buffer", async () => {
+    let fishAmount = parseUnits("10000", 6);
 
-    it("test gain no fees with refunds no buffer", async () => {
-      let fishAmount = parseUnits("10000", 6);
+    let amount = fishAmount / 10n;
+    let firstProfit = fishAmount / 10n;
+    let managementFee = 0n;
+    let performentFee = 0n;
+    let refundRatio = 10_000n;
 
-      let amount = fishAmount / 10n;
-      let firstProfit = fishAmount / 10n;
-      let managementFee = 0n;
-      let performentFee = 0n;
-      let refundRatio = 10_000n;
+    await initialSetUp(flexibleAccountant, amount, managementFee, performentFee, refundRatio, 2n * amount);
 
-      await initialSetUp(flexibleAccountant, amount, managementFee, performentFee, refundRatio, 2n * amount);
+    let totalRefunds = (firstProfit * refundRatio) / 10_000n;
+    await createAndCheckProfit(firstProfit, 0n, totalRefunds);
+    await checkPricePerShare(1n);
+    await checkVaultTotals(amount + firstProfit, totalRefunds, amount + firstProfit + totalRefunds, amount + firstProfit + totalRefunds);
+    expect(await vault.convertToAssets(await vault.balanceOf(vault))).to.equal(firstProfit + totalRefunds);
+    expect(await vault.convertToAssets(await vault.balanceOf(flexibleAccountant))).to.equal(0n);
+    await increaseTimeAndCheckProfitBuffer();
+    await checkPricePerShare(3n);
+    await checkVaultTotals(amount + firstProfit, totalRefunds, amount + firstProfit + totalRefunds, amount);
+    await addDebtToStrategy(vault, strategy, 0n, governance);
+    await checkVaultTotals(0n, amount + firstProfit + totalRefunds, amount + firstProfit + totalRefunds, amount);
+    await checkPricePerShare(3n);
+    expect((await vault.strategies(await strategy.getAddress())).currentDebt).to.equal(0n);
+    await vault.connect(alice).redeem(await vault.balanceOf(alice.address), alice.address, alice.address);
+    await checkPricePerShare(1n);
+    await checkVaultTotals(0n, 0n, 0n, 0n);
+    expect(await usdc.balanceOf(alice.address)).to.equal(amount + firstProfit + totalRefunds);
+    expect(await usdc.balanceOf(await vault.getAddress())).to.equal(0n);
 
-      let totalRefunds = (firstProfit * refundRatio) / 10_000n;
-      await createAndCheckProfit(firstProfit, 0n, totalRefunds);
-      await checkPricePerShare(1n);
-      await checkVaultTotals(amount + firstProfit, totalRefunds, amount + firstProfit + totalRefunds, amount + firstProfit + totalRefunds);
-      expect(await vault.convertToAssets(await vault.balanceOf(vault))).to.equal(firstProfit + totalRefunds);
-      expect(await vault.convertToAssets(await vault.balanceOf(flexibleAccountant))).to.equal(0n);
-      await increaseTimeAndCheckProfitBuffer();
-      await checkPricePerShare(3n);
-      await checkVaultTotals(amount + firstProfit, totalRefunds, amount + firstProfit + totalRefunds, amount);
-      await addDebtToStrategy(vault, strategy, 0n, governance);
-      await checkVaultTotals(0n, amount + firstProfit + totalRefunds, amount + firstProfit + totalRefunds, amount);
-      await checkPricePerShare(3n);
-      expect((await vault.strategies(await strategy.getAddress())).currentDebt).to.equal(0n);
-      await vault.connect(alice).redeem(await vault.balanceOf(alice.address), alice.address, alice.address);
-      await checkPricePerShare(1n);
-      await checkVaultTotals(0n, 0n, 0n, 0n);
-      expect(await usdc.balanceOf(alice.address)).to.equal(amount + firstProfit + totalRefunds);
-      expect(await usdc.balanceOf(await vault.getAddress())).to.equal(0n);
-
-      await expect(vault.connect(alice).redeem(await vault.balanceOf(alice.address), alice.address, alice.address)).to.be.revertedWith("No shares to redeem");
-    });
+    await expect(vault.connect(alice).redeem(await vault.balanceOf(alice.address), alice.address, alice.address)).to.be.revertedWith("No shares to redeem");
   });
 });

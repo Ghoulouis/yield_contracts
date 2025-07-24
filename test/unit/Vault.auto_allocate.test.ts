@@ -21,7 +21,7 @@ import {
   processReport,
 } from "../helper";
 
-describe("Vault auto_allocate Tests", () => {
+describe("Auto Allocate", () => {
   let vault: Vault;
   let usdc: ERC20Mintable;
   let provider = hre.ethers.provider;
@@ -84,7 +84,7 @@ describe("Vault auto_allocate Tests", () => {
       expect(await strategy.balanceOf(await vault.getAddress())).to.equal(0);
       expect((await vault.strategies(strategy.getAddress())).currentDebt).to.equal(0);
       expect(await vault.balanceOf(alice.address)).to.equal(0);
-      console.log("Begining para: OK");
+
       const tx = await mintAndDeposit(vault, usdc, assets, alice);
       const receipt = await tx.wait();
       // find event
@@ -101,7 +101,6 @@ describe("Vault auto_allocate Tests", () => {
       expect(event!.args.strategy).to.equal(await strategy.getAddress());
       expect(event!.args.currentDebt).to.equal(0);
       expect(event!.args.newDebt).to.equal(assets);
-      console.log("Deposit + Event: OK");
       expect(await vault.totalAssets()).to.equal(assets);
       expect(await vault.totalIdle()).to.equal(0);
       expect(await vault.totalDebt()).to.equal(assets);
@@ -110,7 +109,6 @@ describe("Vault auto_allocate Tests", () => {
       expect((await vault.strategies(strategy.getAddress())).currentDebt).to.equal(assets);
       const expectedShares = await vault.convertToShares(assets);
       expect(await vault.balanceOf(alice.address)).to.equal(expectedShares);
-      console.log("Para after deposit: OK");
     });
     it("test_mint__auto_update_debt", async () => {
       const assets1 = 1_000_000n; // 1 USDC (Alice)
@@ -134,10 +132,7 @@ describe("Vault auto_allocate Tests", () => {
       expect(await strategy.balanceOf(await vault.getAddress())).to.equal(0);
       expect((await vault.strategies(strategy.getAddress())).currentDebt).to.equal(0);
       expect(await vault.balanceOf(alice.address)).to.equal(0);
-
-      console.log("Begining para: OK");
       await mintAndDeposit(vault, usdc, assets2, bob);
-      console.log("Deposit Bob: OK");
       // const totalAssets = await vault.totalAssets();
       // const totalSupply = await vault.totalSupply();
 
@@ -145,7 +140,6 @@ describe("Vault auto_allocate Tests", () => {
       await usdc.connect(alice).approve(await vault.getAddress(), assets1);
 
       const shares = await vault.convertToShares(assets1);
-      console.log("Alice shares after:", shares); //  > 0
 
       expect(shares).to.be.greaterThan(0n);
       // ko co ham mint dc goi external nen test tam convertToShares
@@ -173,7 +167,7 @@ describe("Vault auto_allocate Tests", () => {
 
       const tx = await mintAndDeposit(vault, usdc, assets, alice);
       const receipt = await tx.wait();
-      console.log(receipt);
+
       const event = receipt?.logs
         .map((log) => {
           try {
@@ -222,16 +216,7 @@ describe("Vault auto_allocate Tests", () => {
 
       const receipt = await tx.wait();
       const debtUpdatedLogs = receipt?.logs.filter((log) => log.address === vault.getAddress() && log.topics[0] === vault.interface.getEventTopic("DebtUpdated"));
-      expect(debtUpdatedLogs.length).to.equal(0); // Không có DebtUpdated vì maxDeposit = 0
-
-      // after deposit
-
-      console.log("vault totalasset:", await vault.totalAssets()); //1000000n
-      console.log(" total idle: ", await vault.totalIdle()); //0n
-      console.log("strategy (vault) totalAssets: ", await strategy.balanceOf(vault.getAddress())); //1000000n
-      console.log(" vault balance of alice:", await vault.balanceOf(alice.address)); // 1000000000000000000n
-      console.log("vault strategy current debt: ", (await vault.strategies(strategy.getAddress())).currentDebt); //1000000n
-      console.log("max deposit strategy(governance): ", await strategy.maxDeposit(governance)); // = 2**256 -1
+      expect(debtUpdatedLogs?.length).to.equal(0); // Không có DebtUpdated vì maxDeposit = 0
     });
   });
   it("test_deposit__auto_update_debt__min_idle", async () => {
@@ -374,7 +359,6 @@ describe("Vault auto_allocate Tests", () => {
     await processReport(vault, strategy, governance);
 
     expect((await vault.strategies(await strategy.getAddress())).currentDebt).to.be.greaterThan(maxDebt, "currentDebt should be greater than maxDebt");
-    console.log("Part 1: OK!");
     const tx2 = await mintAndDeposit(vault, usdc, assets, alice);
     const receipt2 = await tx2.wait();
     const event2 = receipt2.logs
@@ -395,6 +379,5 @@ describe("Vault auto_allocate Tests", () => {
     expect(await strategy.balanceOf(await vault.getAddress())).to.equal(maxDebt, "strategy balanceOf vault should be maxDebt");
     expect((await vault.strategies(await strategy.getAddress())).currentDebt).to.equal(maxDebt + profit, "currentDebt should be maxDebt + profit");
     expect(await vault.balanceOf(alice.address)).to.be.greaterThan(assets, "alice balance should be greater than assets");
-    console.log("Part 2: OK!");
   });
 });

@@ -5,7 +5,6 @@ import "./interfaces/IAccountant.sol";
 import "@openzeppelin/contracts/proxy/utils/Initializable.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
-import "hardhat/console.sol";
 contract Accountant is IAccountant, Initializable {
     address public governance;
 
@@ -37,11 +36,9 @@ contract Accountant is IAccountant, Initializable {
 
         if (gain > 0) {
             totalFees = (gain * fee.performanceFee) / BASE_BPS;
-            console.log("ACCOUNTANT: totalFees", totalFees);
             return (totalFees, 0);
         } else {
             totalRefunds = (loss * fee.refundRatio) / BASE_BPS;
-            console.log("ACCOUNTANT: totalRefunds", totalRefunds);
             if (totalRefunds > 0) {
                 IERC20(asset).approve(msg.sender, totalRefunds);
             }

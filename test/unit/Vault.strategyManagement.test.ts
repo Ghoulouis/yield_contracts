@@ -6,7 +6,7 @@ import { ethers as ethersv6 } from "ethers";
 
 import { expect } from "chai";
 import { SnapshotRestorer, takeSnapshot } from "@nomicfoundation/hardhat-network-helpers";
-describe("Vault", () => {
+describe("Strategy Management", () => {
   let vault: Vault;
   let usdc: ERC20Mintable;
   let provider = hre.ethers.provider;
