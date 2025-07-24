@@ -20,6 +20,9 @@ library Constants {
     bytes32 public constant ROLE_ACCOUNTANT_MANAGER =
         keccak256("ROLE_ACCOUNTANT_MANAGER");
 
+    bytes32 public constant ROLE_QUEUE_MANAGER =
+        keccak256("ROLE_ACCOUNTANT_MANAGER");
+
     bytes32 public constant ROLE_REPORTING_MANAGER =
         keccak256("ROLE_REPORTING_MANAGER");
 
@@ -34,8 +37,8 @@ library Constants {
     bytes32 public constant ROLE_WITHDRAW_LIMIT_MANAGER =
         keccak256("ROLE_WITHDRAW_LIMIT_MANAGER");
 
-    bytes32 public constant ROLE_MINIMUM_UNLOCK_MANAGER =
-        keccak256("ROLE_MINIUM_UNLOCK_MANAGER");
+    bytes32 public constant ROLE_MINIMUM_IDLE_MANAGER =
+        keccak256("ROLE_MINIMUM_IDLE_MANAGER");
 
     bytes32 public constant ROLE_PROFIT_UNLOCK_MANAGER =
         keccak256("ROLE_PROFIT_UNLOCK_MANAGER");

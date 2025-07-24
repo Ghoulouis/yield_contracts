@@ -3,8 +3,12 @@ pragma solidity ^0.8.24;
 
 import {DataTypes} from "../types/DataTypes.sol";
 import {Constants} from "../Constants.sol";
+import {IVault} from "../../../interfaces/IVault.sol";
+
 library InitializeLogic {
-    function initialize(
+    using InitializeLogic for DataTypes.VaultData;
+
+    function ExecuteInitialize(
         DataTypes.VaultData storage vault,
         uint256 _profitMaxUnlockTime
     ) external {

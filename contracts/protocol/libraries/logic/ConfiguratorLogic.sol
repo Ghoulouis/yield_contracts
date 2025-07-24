@@ -165,4 +165,12 @@ library ConfiguratorLogic {
         vault.accountant = newAccountant;
         emit IVault.UpdateAccountant(newAccountant);
     }
+
+    function ExecuteSetMinimumTotalIdle(
+        DataTypes.VaultData storage vault,
+        uint256 newMinimumTotalIdle
+    ) external {
+        vault.minimumTotalIdle = newMinimumTotalIdle;
+        emit IVault.UpdateMinimumTotalIdle(newMinimumTotalIdle);
+    }
 }

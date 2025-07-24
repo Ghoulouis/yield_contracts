@@ -6,7 +6,7 @@ import { ethers as ethersv6, MaxUint256, parseUnits } from "ethers";
 import { addDebtToStrategy, addStrategy, mintAndDeposit, setDepositLimit, setDepositLimitModule, setLock, setLoss } from "../helper";
 import { expect } from "chai";
 import { SnapshotRestorer, takeSnapshot } from "@nomicfoundation/hardhat-network-helpers";
-describe("Vault", () => {
+describe("ERC 4626", () => {
   let vault: Vault;
   let usdc: ERC20Mintable;
   let provider = hre.ethers.provider;
@@ -43,147 +43,145 @@ describe("Vault", () => {
     await snapshot.restore();
   });
 
-  describe("ERC4626", () => {
+  let amount = parseUnits("1000", 6);
+
+  it("totalAssets()", async () => {
+    await mintAndDeposit(vault, usdc, amount, alice);
+    let totalAssets = await vault.totalAssets();
+    expect(totalAssets).to.equal(amount);
+  });
+
+  it("previewDeposit()", async () => {
+    await mintAndDeposit(vault, usdc, amount, alice);
+    let shares = await vault.balanceOf(alice.address);
+    expect(await vault.previewDeposit(amount)).to.equal(shares);
+  });
+
+  it("previewMint()", async () => {
+    await mintAndDeposit(vault, usdc, amount, alice);
+    let shares = await vault.balanceOf(alice.address);
+    expect(await vault.previewMint(shares)).to.equal(amount);
+  });
+
+  it("maxDeposit()", async () => {
+    await mintAndDeposit(vault, usdc, amount, alice);
+    expect(await vault.maxDeposit(alice.address)).to.equal(MaxUint256);
+  });
+
+  it("maxDeposit() with depositLimit", async () => {
+    let amount = 10n ** 6n;
+    await setDepositLimit(vault, amount / 2n, governance);
+    expect(await vault.maxDeposit(alice.address)).to.equal(amount / 2n);
+  });
+
+  it("maxDeposit() with depositLimitModule", async () => {
+    let limit_amount = 10n * 10n ** 6n;
+    await setDepositLimitModule(vault, governance);
+
+    expect(await vault.maxDeposit(alice.address)).to.equal(limit_amount);
+  });
+
+  it("maxDeposit() with total assets greater than or qual deposit limit return zero", async () => {
     let amount = parseUnits("1000", 6);
+    await mintAndDeposit(vault, usdc, amount, alice);
+    await setDepositLimit(vault, amount / 2n, governance);
+    expect(await vault.maxDeposit(alice.address)).to.equal(0n);
+  });
 
-    it("totalAssets()", async () => {
-      await mintAndDeposit(vault, usdc, amount, alice);
-      let totalAssets = await vault.totalAssets();
-      expect(totalAssets).to.equal(amount);
-    });
+  it("maxDeposit() with total assets less than deposit limit return deposit limit minus total assets", async () => {
+    let amount = parseUnits("1000", 6);
+    await mintAndDeposit(vault, usdc, 1n, alice);
+    await setDepositLimit(vault, amount / 2n, governance);
+    expect(await vault.maxDeposit(alice.address)).to.equal(amount / 2n - 1n);
+  });
 
-    it("previewDeposit()", async () => {
-      await mintAndDeposit(vault, usdc, amount, alice);
-      let shares = await vault.balanceOf(alice.address);
-      expect(await vault.previewDeposit(amount)).to.equal(shares);
-    });
+  it("previewMint()", async () => {
+    await mintAndDeposit(vault, usdc, amount, alice);
+    let shares = await vault.balanceOf(alice.address);
+    expect(await vault.previewMint(shares)).to.equal(amount);
+  });
+  it("maxMint() with total assets greater than or qual deposit limit return zero", async () => {
+    await mintAndDeposit(vault, usdc, amount, alice);
+    await setDepositLimit(vault, 1n, governance);
+    expect(await vault.maxMint(alice.address)).to.equal(0n);
+  });
 
-    it("previewMint()", async () => {
-      await mintAndDeposit(vault, usdc, amount, alice);
-      let shares = await vault.balanceOf(alice.address);
-      expect(await vault.previewMint(shares)).to.equal(amount);
-    });
+  it("maxMint() with total assets less than deposit limit return deposit limit minus total assets", async () => {
+    let amount = parseUnits("1000", 6);
+    await mintAndDeposit(vault, usdc, 1n, alice);
+    await setDepositLimit(vault, amount / 2n, governance);
+    expect(await vault.maxMint(alice.address)).to.equal(await vault.convertToShares(amount / 2n - 1n));
+  });
 
-    it("maxDeposit()", async () => {
-      await mintAndDeposit(vault, usdc, amount, alice);
-      expect(await vault.maxDeposit(alice.address)).to.equal(MaxUint256);
-    });
+  it("previewWithdraw()", async () => {
+    await mintAndDeposit(vault, usdc, amount, alice);
+    let shares = await vault.balanceOf(alice.address);
+    expect(await vault.previewWithdraw(amount)).to.equal(shares);
+  });
 
-    it("maxDeposit() with depositLimit", async () => {
-      let amount = 10n ** 6n;
-      await setDepositLimit(vault, amount / 2n, governance);
-      expect(await vault.maxDeposit(alice.address)).to.equal(amount / 2n);
-    });
+  it("maxWithdraw() with balance greater than total idle returns balance", async () => {
+    let strategyDeposit = amount / 2n;
+    await mintAndDeposit(vault, usdc, amount, alice);
+    await addStrategy(vault, strategy, governance);
+    await addDebtToStrategy(vault, strategy, strategyDeposit, governance);
+    expect(await vault["maxWithdraw(address)"](alice.address)).to.equal(amount);
+  });
 
-    it("maxDeposit() with depositLimitModule", async () => {
-      let limit_amount = 10n * 10n ** 6n;
-      await setDepositLimitModule(vault, governance);
+  it("maxWithdraw() with balance less or equal to total idle returns balance", async () => {
+    await mintAndDeposit(vault, usdc, amount, alice);
+    expect(await vault["maxWithdraw(address)"](alice.address)).to.equal(amount);
+  });
 
-      expect(await vault.maxDeposit(alice.address)).to.equal(limit_amount);
-    });
+  it("maxWithdraw() with custom parameters", async () => {
+    await mintAndDeposit(vault, usdc, amount, alice);
+    await addStrategy(vault, strategy, governance);
 
-    it("maxDeposit() with total assets greater than or qual deposit limit return zero", async () => {
-      let amount = parseUnits("1000", 6);
-      await mintAndDeposit(vault, usdc, amount, alice);
-      await setDepositLimit(vault, amount / 2n, governance);
-      expect(await vault.maxDeposit(alice.address)).to.equal(0n);
-    });
+    let strategyDeposit = amount / 2n;
+    await addDebtToStrategy(vault, strategy, strategyDeposit, governance);
 
-    it("maxDeposit() with total assets less than deposit limit return deposit limit minus total assets", async () => {
-      let amount = parseUnits("1000", 6);
-      await mintAndDeposit(vault, usdc, 1n, alice);
-      await setDepositLimit(vault, amount / 2n, governance);
-      expect(await vault.maxDeposit(alice.address)).to.equal(amount / 2n - 1n);
-    });
+    expect(await vault["maxWithdraw(address,uint256,address[])"](alice.address, 22n, [await strategy.getAddress()])).to.equal(amount);
+  });
 
-    it("previewMint()", async () => {
-      await mintAndDeposit(vault, usdc, amount, alice);
-      let shares = await vault.balanceOf(alice.address);
-      expect(await vault.previewMint(shares)).to.equal(amount);
-    });
-    it("maxMint() with total assets greater than or qual deposit limit return zero", async () => {
-      await mintAndDeposit(vault, usdc, amount, alice);
-      await setDepositLimit(vault, 1n, governance);
-      expect(await vault.maxMint(alice.address)).to.equal(0n);
-    });
+  it("maxWithdraw() with lossy strategy", async () => {
+    let strategyDeposit = amount / 2n;
+    let loss = strategyDeposit / 2n;
+    let totalIdle = amount - strategyDeposit;
+    await mintAndDeposit(vault, usdc, amount, alice);
+    await addStrategy(vault, strategy, governance);
+    await addDebtToStrategy(vault, strategy, strategyDeposit, governance);
+    await setLoss(strategy, loss, governance);
+    expect(await vault["maxWithdraw(address)"](alice.address)).to.equal(totalIdle);
+    expect(await vault["maxWithdraw(address,uint256,address[])"](alice.address, 10000, [await strategy.getAddress()])).to.equal(amount);
+  });
 
-    it("maxMint() with total assets less than deposit limit return deposit limit minus total assets", async () => {
-      let amount = parseUnits("1000", 6);
-      await mintAndDeposit(vault, usdc, 1n, alice);
-      await setDepositLimit(vault, amount / 2n, governance);
-      expect(await vault.maxMint(alice.address)).to.equal(await vault.convertToShares(amount / 2n - 1n));
-    });
+  it("depost()", async () => {
+    let amount = parseUnits("100", 6);
+    await usdc.connect(alice).mint(alice.address, amount);
+    await usdc.connect(alice).approve(await vault.getAddress(), amount);
 
-    it("previewWithdraw()", async () => {
-      await mintAndDeposit(vault, usdc, amount, alice);
-      let shares = await vault.balanceOf(alice.address);
-      expect(await vault.previewWithdraw(amount)).to.equal(shares);
-    });
+    await expect(vault.connect(alice).deposit(amount, alice.address))
+      .to.be.emit(vault, "Deposited")
+      .withArgs(alice.address, amount, await vault.convertToShares(amount));
+  });
 
-    it("maxWithdraw() with balance greater than total idle returns balance", async () => {
-      let strategyDeposit = amount / 2n;
-      await mintAndDeposit(vault, usdc, amount, alice);
-      await addStrategy(vault, strategy, governance);
-      await addDebtToStrategy(vault, strategy, strategyDeposit, governance);
-      expect(await vault["maxWithdraw(address)"](alice.address)).to.equal(amount);
-    });
+  it("mint() ", async () => {
+    let amount = parseUnits("100", 6);
+    await usdc.connect(alice).mint(alice.address, amount);
+    await usdc.connect(alice).approve(await vault.getAddress(), amount);
 
-    it("maxWithdraw() with balance less or equal to total idle returns balance", async () => {
-      await mintAndDeposit(vault, usdc, amount, alice);
-      expect(await vault["maxWithdraw(address)"](alice.address)).to.equal(amount);
-    });
+    let expectShares = await vault.previewDeposit(amount);
 
-    it("maxWithdraw() with custom parameters", async () => {
-      await mintAndDeposit(vault, usdc, amount, alice);
-      await addStrategy(vault, strategy, governance);
+    await expect(vault.connect(alice)["mint(uint256,address)"](expectShares, alice.address)).to.be.emit(vault, "Deposited").withArgs(alice.address, amount, expectShares);
+  });
 
-      let strategyDeposit = amount / 2n;
-      await addDebtToStrategy(vault, strategy, strategyDeposit, governance);
+  it("redeem() ", async () => {
+    let amount = parseUnits("100", 6);
+    await mintAndDeposit(vault, usdc, amount, alice);
 
-      expect(await vault["maxWithdraw(address,uint256,address[])"](alice.address, 22n, [await strategy.getAddress()])).to.equal(amount);
-    });
+    let sharesRedeem = amount / 2n;
 
-    it("maxWithdraw() with lossy strategy", async () => {
-      let strategyDeposit = amount / 2n;
-      let loss = strategyDeposit / 2n;
-      let totalIdle = amount - strategyDeposit;
-      await mintAndDeposit(vault, usdc, amount, alice);
-      await addStrategy(vault, strategy, governance);
-      await addDebtToStrategy(vault, strategy, strategyDeposit, governance);
-      await setLoss(strategy, loss, governance);
-      expect(await vault["maxWithdraw(address)"](alice.address)).to.equal(totalIdle);
-      expect(await vault["maxWithdraw(address,uint256,address[])"](alice.address, 10000, [await strategy.getAddress()])).to.equal(amount);
-    });
-
-    it("depost()", async () => {
-      let amount = parseUnits("100", 6);
-      await usdc.connect(alice).mint(alice.address, amount);
-      await usdc.connect(alice).approve(await vault.getAddress(), amount);
-
-      await expect(vault.connect(alice).deposit(amount, alice.address))
-        .to.be.emit(vault, "Deposited")
-        .withArgs(alice.address, amount, await vault.convertToShares(amount));
-    });
-
-    it("mint() ", async () => {
-      let amount = parseUnits("100", 6);
-      await usdc.connect(alice).mint(alice.address, amount);
-      await usdc.connect(alice).approve(await vault.getAddress(), amount);
-
-      let expectShares = await vault.previewDeposit(amount);
-
-      await expect(vault.connect(alice)["mint(uint256,address)"](expectShares, alice.address)).to.be.emit(vault, "Deposited").withArgs(alice.address, amount, expectShares);
-    });
-
-    it("redeem() ", async () => {
-      let amount = parseUnits("100", 6);
-      await mintAndDeposit(vault, usdc, amount, alice);
-
-      let sharesRedeem = amount / 2n;
-
-      await expect(await vault.connect(alice).redeem(sharesRedeem, alice.address, alice.address))
-        .to.be.emit(vault, "Withdrawn")
-        .withArgs(alice.address, sharesRedeem, sharesRedeem, 0);
-    });
+    await expect(await vault.connect(alice).redeem(sharesRedeem, alice.address, alice.address))
+      .to.be.emit(vault, "Withdrawn")
+      .withArgs(alice.address, sharesRedeem, sharesRedeem, 0);
   });
 });

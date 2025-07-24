@@ -6,6 +6,7 @@ import {ERC4626Logic} from "./ERC4626Logic.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import {ERC20Logic} from "./ERC20Logic.sol";
+import {DebtLogic} from "./DebtLogic.sol";
 
 import {IVault} from "../../../interfaces/IVault.sol";
 import "hardhat/console.sol";
@@ -14,6 +15,7 @@ library DepositLogic {
     using SafeERC20 for IERC20;
     using ERC4626Logic for DataTypes.VaultData;
     using ERC20Logic for DataTypes.VaultData;
+    using DebtLogic for DataTypes.VaultData;
 
     function executeDeposit(
         DataTypes.VaultData storage vault,
@@ -33,14 +35,13 @@ library DepositLogic {
         vault.totalIdle += assets;
         vault._mint(receiver, shares);
 
-        // if (vaultData.autoAllocate && vaultData.defaultQueue.length > 0) {
-        //     _updateDebt(
-        //         vaultData,
-        //         vaultData.defaultQueue[0],
-        //         type(uint256).max,
-        //         0
-        //     );
-        // }
+        if (vault.autoAllocate && vault.defaultQueue.length > 0) {
+            vault.ExecuteUpdateDebt(
+                vault.defaultQueue[0],
+                type(uint256).max,
+                0
+            );
+        }
 
         emit IVault.Deposited(receiver, assets, shares);
     }

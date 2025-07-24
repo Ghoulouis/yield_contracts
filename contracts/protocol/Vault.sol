@@ -6,7 +6,6 @@ import "@openzeppelin/contracts-upgradeable/access/AccessControlUpgradeable.sol"
 import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 import "@openzeppelin/contracts-upgradeable/utils/ReentrancyGuardUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/utils/PausableUpgradeable.sol";
-import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "@openzeppelin/contracts/utils/math/Math.sol";
 import "../interfaces/IStrategy.sol";
 import "../interfaces/IRoleModule.sol";
@@ -15,24 +14,18 @@ import "../interfaces/IDepositLimitModule.sol";
 import "../interfaces/IWithdrawLimitModule.sol";
 
 import "./VaultStorage.sol";
-
-import {Constants} from "./libraries/Constants.sol";
 import {DataTypes} from "./libraries/types/DataTypes.sol";
+import {Constants} from "./libraries/Constants.sol";
 import {ERC20Logic} from "./libraries/logic/ERC20Logic.sol";
 import {ERC4626Logic} from "./libraries/logic/ERC4626Logic.sol";
-
 import {InitializeLogic} from "./libraries/logic/InitializeLogic.sol";
 import {DepositLogic} from "./libraries/logic/DepositLogic.sol";
 import {WithdrawLogic} from "./libraries/logic/WithdrawLogic.sol";
 import {UnlockSharesLogic} from "./libraries/logic/UnlockSharesLogic.sol";
 import {DebtLogic} from "./libraries/logic/DebtLogic.sol";
-
 import {ConfiguratorLogic} from "./libraries/logic/ConfiguratorLogic.sol";
-
 import {IVault} from "../interfaces/IVault.sol";
-
 import "hardhat/console.sol";
-
 contract Vault is
     IVault,
     VaultStorage,
@@ -42,7 +35,6 @@ contract Vault is
     AccessControlUpgradeable
 {
     using ERC4626Logic for DataTypes.VaultData;
-    using InitializeLogic for DataTypes.VaultData;
     using DepositLogic for DataTypes.VaultData;
     using WithdrawLogic for DataTypes.VaultData;
 
@@ -63,8 +55,15 @@ contract Vault is
         __ReentrancyGuard_init();
         __Pausable_init();
         __AccessControl_init();
-        vaultData.initialize(_profitMaxUnlockTime);
 
+        InitializeLogic.ExecuteInitialize(vaultData, _profitMaxUnlockTime);
+
+        _grantRole(Constants.ROLE_GOVERNANCE_MANAGER, governance);
+
+        _setRoleAdmin(
+            Constants.ROLE_GOVERNANCE_MANAGER,
+            Constants.ROLE_GOVERNANCE_MANAGER
+        );
         _setRoleAdmin(
             Constants.ROLE_ADD_STRATEGY_MANAGER,
             Constants.ROLE_GOVERNANCE_MANAGER
@@ -75,6 +74,10 @@ contract Vault is
         );
         _setRoleAdmin(
             Constants.ROLE_ACCOUNTANT_MANAGER,
+            Constants.ROLE_GOVERNANCE_MANAGER
+        );
+        _setRoleAdmin(
+            Constants.ROLE_QUEUE_MANAGER,
             Constants.ROLE_GOVERNANCE_MANAGER
         );
         _setRoleAdmin(
@@ -93,7 +96,26 @@ contract Vault is
             Constants.ROLE_DEPOSIT_LIMIT_MANAGER,
             Constants.ROLE_GOVERNANCE_MANAGER
         );
-        _grantRole(Constants.ROLE_GOVERNANCE_MANAGER, governance);
+        _setRoleAdmin(
+            Constants.ROLE_WITHDRAW_LIMIT_MANAGER,
+            Constants.ROLE_GOVERNANCE_MANAGER
+        );
+        _setRoleAdmin(
+            Constants.ROLE_MINIMUM_IDLE_MANAGER,
+            Constants.ROLE_GOVERNANCE_MANAGER
+        );
+        _setRoleAdmin(
+            Constants.ROLE_PROFIT_UNLOCK_MANAGER,
+            Constants.ROLE_GOVERNANCE_MANAGER
+        );
+        _setRoleAdmin(
+            Constants.ROLE_DEBT_PURCHASER,
+            Constants.ROLE_GOVERNANCE_MANAGER
+        );
+        _setRoleAdmin(
+            Constants.ROLE_EMERGENCY_MANAGER,
+            Constants.ROLE_GOVERNANCE_MANAGER
+        );
     }
 
     // ERC20 overrides
@@ -115,6 +137,8 @@ contract Vault is
     {
         return super.decimals();
     }
+
+    // ERC4626 overrides
 
     function totalSupply()
         public
@@ -305,7 +329,9 @@ contract Vault is
 
     // DEBT MANAGEMENT
 
-    function processReport(address strategy) external nonReentrant {
+    function processReport(
+        address strategy
+    ) external nonReentrant onlyRole(Constants.ROLE_REPORTING_MANAGER) {
         DebtLogic.ExecuteProcessReport(vaultData, strategy);
     }
 
@@ -313,14 +339,14 @@ contract Vault is
         address strategy,
         uint256 targetDebt,
         uint256 maxLoss
-    ) external nonReentrant {
+    ) external nonReentrant onlyRole(Constants.ROLE_DEBT_MANAGER) {
         DebtLogic.ExecuteUpdateDebt(vaultData, strategy, targetDebt, maxLoss);
     }
 
     function updateMaxDebtForStrategy(
         address strategy,
         uint256 newMaxDebt
-    ) external nonReentrant {
+    ) external nonReentrant onlyRole(Constants.ROLE_MAX_DEBT_MANAGER) {
         DebtLogic.ExecuteUpdateMaxDebtForStrategy(
             vaultData,
             strategy,
@@ -328,7 +354,10 @@ contract Vault is
         );
     }
 
-    function buyDebt(address strategy, uint256 amount) external {
+    function buyDebt(
+        address strategy,
+        uint256 amount
+    ) external nonReentrant onlyRole(Constants.ROLE_DEBT_PURCHASER) {
         DebtLogic.buyDebt(vaultData, strategy, amount);
     }
 
@@ -363,7 +392,9 @@ contract Vault is
         ConfiguratorLogic.ExecuteSetAutoAllocate(vaultData, autoAllocate);
     }
 
-    function setDepositLimit(uint256 depositLimit) external {
+    function setDepositLimit(
+        uint256 depositLimit
+    ) external onlyRole(Constants.ROLE_DEPOSIT_LIMIT_MANAGER) {
         ConfiguratorLogic.ExecuteSetDepositLimit(
             vaultData,
             depositLimit,
@@ -371,11 +402,15 @@ contract Vault is
         );
     }
 
-    function setDepositLimitForce(uint256 depositLimit) external {
+    function setDepositLimitForce(
+        uint256 depositLimit
+    ) external onlyRole(Constants.ROLE_DEPOSIT_LIMIT_MANAGER) {
         ConfiguratorLogic.ExecuteSetDepositLimit(vaultData, depositLimit, true);
     }
 
-    function setDepositLimitModule(address newDepositLimitModule) external {
+    function setDepositLimitModule(
+        address newDepositLimitModule
+    ) external onlyRole(Constants.ROLE_DEPOSIT_LIMIT_MANAGER) {
         ConfiguratorLogic.ExecuteSetDepositLimitModule(
             vaultData,
             newDepositLimitModule,
@@ -385,7 +420,7 @@ contract Vault is
 
     function setDepositLimitModuleForce(
         address newDepositLimitModule
-    ) external {
+    ) external onlyRole(Constants.ROLE_DEPOSIT_LIMIT_MANAGER) {
         ConfiguratorLogic.ExecuteSetDepositLimitModule(
             vaultData,
             newDepositLimitModule,
@@ -393,8 +428,19 @@ contract Vault is
         );
     }
 
-    function setAccountant(address newAccountant) external {
+    function setAccountant(
+        address newAccountant
+    ) external onlyRole(Constants.ROLE_ACCOUNTANT_MANAGER) {
         ConfiguratorLogic.ExecuteSetAccountant(vaultData, newAccountant);
+    }
+
+    function setMinimumTotalIdle(
+        uint256 newMinimumTotalIdle
+    ) external onlyRole(Constants.ROLE_MINIMUM_IDLE_MANAGER) {
+        ConfiguratorLogic.ExecuteSetMinimumTotalIdle(
+            vaultData,
+            newMinimumTotalIdle
+        );
     }
 
     // VIEW FUNCTIONS
@@ -415,5 +461,9 @@ contract Vault is
 
     function totalIdle() public view returns (uint256) {
         return vaultData.totalIdle;
+    }
+
+    function minimumTotalIdle() public view returns (uint256) {
+        return vaultData.minimumTotalIdle;
     }
 }

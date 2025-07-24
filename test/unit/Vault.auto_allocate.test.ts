@@ -173,6 +173,7 @@ describe("Vault auto_allocate Tests", () => {
 
       const tx = await mintAndDeposit(vault, usdc, assets, alice);
       const receipt = await tx.wait();
+      console.log(receipt);
       const event = receipt?.logs
         .map((log) => {
           try {
@@ -192,7 +193,7 @@ describe("Vault auto_allocate Tests", () => {
       expect(await strategy.totalAssets()).to.equal(maxDebt, "strategy totalAssets should equal maxDebt");
       expect(await strategy.balanceOf(await vault.getAddress())).to.equal(maxDebt, "strategy balanceOf vault should equal maxDebt");
       expect((await vault.strategies(await strategy.getAddress())).currentDebt).to.equal(maxDebt, "currentDebt should equal maxDebt");
-      expect(await vault.balanceOf(alice.address)).to.equal(assets * BigInt(1e12), "alice balance should equal assets");
+      expect(await vault.balanceOf(alice.address)).to.equal(assets, "alice balance should equal assets");
     });
     it("test_deposit__auto_update_debt__max_deposit_zero", async () => {
       const assets = 1_000_000n; // 1 USDC
@@ -278,7 +279,7 @@ describe("Vault auto_allocate Tests", () => {
     expect(await strategy.totalAssets()).to.equal(assets - minIdle, "strategy totalAssets should equal assets - minIdle");
     expect(await strategy.balanceOf(await vault.getAddress())).to.equal(assets - minIdle, "strategy balanceOf vault should equal assets - minIdle");
     expect((await vault.strategies(await strategy.getAddress())).currentDebt).to.equal(assets - minIdle, "currentDebt should equal assets - minIdle");
-    expect(await vault.balanceOf(alice.address)).to.equal(assets * BigInt(1e12), "alice balance should equal assets");
+    expect(await vault.balanceOf(alice.address)).to.equal(assets, "alice balance should equal assets");
   });
   it("test_deposit__auto_update_debt__min_idle_not_met", async () => {
     const assets = 10_000_000n; // 10 USDC
@@ -320,7 +321,7 @@ describe("Vault auto_allocate Tests", () => {
     expect(await strategy.totalAssets()).to.equal(0, "strategy totalAssets should be 0");
     expect(await strategy.balanceOf(await vault.getAddress())).to.equal(0, "strategy balanceOf vault should be 0");
     expect((await vault.strategies(await strategy.getAddress())).currentDebt).to.equal(0, "currentDebt should be 0");
-    expect(await vault.balanceOf(alice.address)).to.equal(assets * BigInt(1e12), "alice balance should equal assets");
+    expect(await vault.balanceOf(alice.address)).to.equal(assets, "alice balance should equal assets");
   });
   it("test_deposit__auto_update_debt__current_debt_more_than_max_debt", async () => {
     const assets = 5_000_000n; //
@@ -365,7 +366,7 @@ describe("Vault auto_allocate Tests", () => {
     expect(await strategy.totalAssets()).to.equal(maxDebt, "strategy totalAssets should be maxDebt");
     expect(await strategy.balanceOf(await vault.getAddress())).to.equal(maxDebt, "strategy balanceOf vault should be maxDebt");
     expect((await vault.strategies(await strategy.getAddress())).currentDebt).to.equal(maxDebt, "currentDebt should be maxDebt");
-    expect(await vault.balanceOf(alice.address)).to.equal(assets * BigInt(1e12), "alice balance should equal assets");
+    expect(await vault.balanceOf(alice.address)).to.equal(assets, "alice balance should equal assets");
 
     const profit = assets / 10n; // profit = assets // 10
     await airdropAsset(usdc, await strategy.getAddress(), profit, governance);
@@ -393,7 +394,7 @@ describe("Vault auto_allocate Tests", () => {
     expect(await strategy.totalAssets()).to.equal(maxDebt + profit, "strategy totalAssets should be maxDebt + profit");
     expect(await strategy.balanceOf(await vault.getAddress())).to.equal(maxDebt, "strategy balanceOf vault should be maxDebt");
     expect((await vault.strategies(await strategy.getAddress())).currentDebt).to.equal(maxDebt + profit, "currentDebt should be maxDebt + profit");
-    expect(await vault.balanceOf(alice.address)).to.be.greaterThan(assets * BigInt(1e12), "alice balance should be greater than assets");
+    expect(await vault.balanceOf(alice.address)).to.be.greaterThan(assets, "alice balance should be greater than assets");
     console.log("Part 2: OK!");
   });
 });
