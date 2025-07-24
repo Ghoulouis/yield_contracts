@@ -61,11 +61,6 @@ library WithdrawLogic {
         require(shares > 0, "No shares to redeem");
         require(assets > 0, "No assets to redeem");
         require(maxLoss <= Constants.MAX_BPS, "Invalid max loss");
-        require(vault.balanceOf(owner) >= shares, "Insufficient shares");
-
-        if (sender != owner) {
-            vault._spendAllowance(owner, sender, shares);
-        }
 
         if (vault.withdrawLimitModule != address(0)) {
             require(
@@ -74,6 +69,12 @@ library WithdrawLogic {
                         .availableWithdrawLimit(owner, maxLoss, _strategies),
                 "Exceed withdraw limit"
             );
+        }
+
+        require(vault.balanceOf(owner) >= shares, "Insufficient shares");
+
+        if (sender != owner) {
+            vault._spendAllowance(owner, sender, shares);
         }
 
         uint256 requestedAssets = assets;
@@ -85,56 +86,82 @@ library WithdrawLogic {
                 _strategies.length == 0
                 ? vault.defaultQueue
                 : _strategies;
-
-            uint256 assetsNeeded = requestedAssets - currentTotalIdle;
             uint256 currentTotalDebt = vault.totalDebt;
+            uint256 assetsNeeded = requestedAssets - currentTotalIdle;
+            uint256 assetsToWithdraw = 0;
             uint256 previousBalance = IERC20(_asset).balanceOf(address(this));
-
-            uint256 currentDebt;
-            uint256 assetsToWithdraw;
-            uint256 maxAssetsCanWithdraw;
-            uint256 unrealisedLoss;
 
             for (uint256 i = 0; i < queue.length; i++) {
                 address strategy = queue[i];
-
-                (
-                    assetsNeeded,
-                    requestedAssets,
-                    currentTotalDebt,
-                    unrealisedLoss
-                ) = _redeemHelper(
-                    vault,
-                    strategy,
-                    assetsNeeded,
-                    requestedAssets,
-                    currentTotalDebt
+                require(
+                    vault.strategies[strategy].activation != 0,
+                    "Inactive strategy"
+                );
+                uint256 currentDebt = vault.strategies[strategy].currentDebt;
+                assetsToWithdraw = Math.min(assetsNeeded, currentDebt);
+                uint256 maxWithdraw = IStrategy(strategy).convertToAssets(
+                    IStrategy(strategy).maxRedeem(address(this))
                 );
 
-                assetsToWithdraw = Math.min(
-                    assetsToWithdraw,
-                    maxAssetsCanWithdraw
-                );
+                uint256 unrealisedLossesShare = UnrealisedLossesLogic
+                    ._assessShareOfUnrealisedLosses(
+                        strategy,
+                        currentDebt,
+                        assetsToWithdraw
+                    );
+
+                if (unrealisedLossesShare > 0) {
+                    if (
+                        maxWithdraw < assetsToWithdraw - unrealisedLossesShare
+                    ) {
+                        unrealisedLossesShare =
+                            (unrealisedLossesShare * maxWithdraw) /
+                            (assetsToWithdraw - unrealisedLossesShare);
+                        assetsToWithdraw = maxWithdraw + unrealisedLossesShare;
+                    }
+                    assetsToWithdraw -= unrealisedLossesShare;
+                    requestedAssets -= unrealisedLossesShare;
+                    assetsNeeded -= unrealisedLossesShare;
+                    currentTotalDebt -= unrealisedLossesShare;
+
+                    if (maxWithdraw == 0 && unrealisedLossesShare > 0) {
+                        vault.strategies[strategy].currentDebt =
+                            currentDebt -
+                            unrealisedLossesShare;
+                        emit IVault.DebtUpdated(
+                            strategy,
+                            currentDebt,
+                            vault.strategies[strategy].currentDebt
+                        );
+                    }
+                }
+                assetsToWithdraw = Math.min(assetsToWithdraw, maxWithdraw);
 
                 if (assetsToWithdraw == 0) continue;
 
                 vault._withdrawFromStrategy(strategy, assetsToWithdraw);
 
                 uint256 postBalance = IERC20(_asset).balanceOf(address(this));
-                uint256 withdrawn = Math.min(
-                    postBalance - previousBalance,
-                    currentDebt
-                );
-                uint256 loss = assetsToWithdraw > withdrawn
-                    ? assetsToWithdraw - withdrawn
-                    : 0;
+                uint256 withdrawn = postBalance - previousBalance;
+
+                uint256 loss = 0;
+
+                if (withdrawn > assetsToWithdraw) {
+                    if (withdrawn > currentDebt) {
+                        assetsToWithdraw = currentDebt;
+                    } else {
+                        assetsToWithdraw += withdrawn - assetsToWithdraw;
+                    }
+                } else if (withdrawn < assetsToWithdraw) {
+                    loss = assetsToWithdraw - withdrawn;
+                }
 
                 currentTotalIdle += (assetsToWithdraw - loss);
                 requestedAssets -= loss;
                 currentTotalDebt -= assetsToWithdraw;
 
                 uint256 newDebt = currentDebt -
-                    (assetsToWithdraw + unrealisedLoss);
+                    (assetsToWithdraw + unrealisedLossesShare);
                 vault.strategies[strategy].currentDebt = newDebt;
                 emit IVault.DebtUpdated(strategy, currentDebt, newDebt);
                 if (requestedAssets <= currentTotalIdle) break;
@@ -163,63 +190,5 @@ library WithdrawLogic {
 
         emit IVault.Withdrawn(owner, shares, requestedAssets, 0);
         return requestedAssets;
-    }
-
-    function _redeemHelper(
-        DataTypes.VaultData storage vault,
-        address strategy,
-        uint256 assetsNeeded,
-        uint256 requestedAssets,
-        uint256 currentTotalDebt
-    ) internal returns (uint256, uint256, uint256, uint256) {
-        require(
-            vault.strategies[strategy].activation != 0,
-            "Inactive strategy"
-        );
-        uint256 currentDebt = vault.strategies[strategy].currentDebt;
-        uint256 assetsToWithdraw = Math.min(assetsNeeded, currentDebt);
-        uint256 maxAssetsCanWithdraw = IStrategy(strategy).convertToAssets(
-            IStrategy(strategy).maxRedeem(address(this))
-        );
-        console.log("assetsToWithdraw", assetsToWithdraw);
-        console.log("maxAssetsCanWithdraw", maxAssetsCanWithdraw);
-
-        uint256 unrealisedLoss = UnrealisedLossesLogic
-            ._assessShareOfUnrealisedLosses(
-                strategy,
-                currentDebt,
-                assetsToWithdraw
-            );
-
-        if (unrealisedLoss > 0) {
-            if (maxAssetsCanWithdraw < assetsToWithdraw - unrealisedLoss) {
-                unrealisedLoss =
-                    (unrealisedLoss * maxAssetsCanWithdraw) /
-                    (assetsToWithdraw - unrealisedLoss);
-                assetsToWithdraw = maxAssetsCanWithdraw + unrealisedLoss;
-            }
-            assetsToWithdraw -= unrealisedLoss;
-            requestedAssets -= unrealisedLoss;
-            assetsNeeded -= unrealisedLoss;
-            currentTotalDebt -= unrealisedLoss;
-
-            if (maxAssetsCanWithdraw == 0 && unrealisedLoss > 0) {
-                vault.strategies[strategy].currentDebt =
-                    currentDebt -
-                    unrealisedLoss;
-                emit IVault.DebtUpdated(
-                    strategy,
-                    currentDebt,
-                    vault.strategies[strategy].currentDebt
-                );
-            }
-        }
-
-        return (
-            assetsNeeded,
-            requestedAssets,
-            currentTotalDebt,
-            unrealisedLoss
-        );
     }
 }

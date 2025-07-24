@@ -2,7 +2,7 @@
 pragma solidity ^0.8.24;
 
 library Constants {
-    uint256 public constant MAX_QUEUE = 5;
+    uint256 public constant MAX_QUEUE = 20;
     string public constant API_VERSION = "0.0.1";
     uint256 public constant MAX_PROFIT_UNLOCK_TIME = 365 days;
     uint256 public constant MAX_BPS = 10_000;
