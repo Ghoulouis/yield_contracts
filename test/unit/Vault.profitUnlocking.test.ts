@@ -3,7 +3,7 @@ import { Accountant, Accountant__factory, ERC20Mintable, ERC20Mintable__factory,
 import { getNamedAccounts, network } from "hardhat";
 import hre from "hardhat";
 import { assert, ethers as ethersv6, parseUnits } from "ethers";
-import { addDebtToStrategy, addStrategy, mintAndDeposit, processReport, setFee } from "../helper";
+import { addDebtToStrategy, addStrategy, mintAndDeposit, processReport, setFee, setLoss } from "../helper";
 import { expect } from "chai";
 import { SnapshotRestorer, takeSnapshot } from "@nomicfoundation/hardhat-network-helpers";
 
@@ -19,7 +19,9 @@ describe("Profit Unlocking", () => {
   let strategy: MockStrategy;
   let accountant: Accountant;
   let flexibleAccountant: Accountant;
-
+  const WEEK = 7 * 24 * 60 * 60;
+  const MAX_BPS_ACCOUNTANT = 10_000n;
+  const YEAR = 31_556_952; // 1 year in seconds
   before(async () => {
     await hre.deployments.fixture();
     let { deployer, agent, beneficiary } = await getNamedAccounts();
@@ -64,6 +66,30 @@ describe("Profit Unlocking", () => {
     expect(parsed?.args!.currentDebt).to.closeTo(initialDebt + profit, 1n);
     expect(parsed?.args!.protocolFees).to.equal(0);
     expect(parsed?.args!.totalFees).to.equal(0);
+    expect(parsed?.args!.totalRefunds).to.equal(totalRefunds);
+  }
+  async function createAndCheckLoss(
+    strategy: MockStrategy,
+    signer: HardhatEthersSigner,
+    vault: Vault,
+    loss: bigint,
+    totalFees: bigint = 0n,
+    totalRefunds: bigint = 0n
+  ) {
+    const initialDebt = (await vault.strategies(await strategy.getAddress())).currentDebt;
+    await setLoss(strategy, loss, signer);
+    const tx = await vault.connect(signer).processReport(await strategy.getAddress());
+    const receipt = await tx.wait();
+    const eventSignature = vault.interface.getEvent("StrategyReported").format();
+    const topic = ethersv6.id(eventSignature);
+    const event = receipt?.logs.find((log: any) => log.topics[0] === topic);
+    const parsed = vault.interface.parseLog(event!);
+    expect(parsed?.args!.strategy).to.equal(await strategy.getAddress());
+    expect(parsed?.args!.gain).to.equal(0);
+    expect(parsed?.args!.loss).to.closeTo(loss, 1n);
+    expect(parsed?.args!.currentDebt).to.closeTo(initialDebt - loss, 1n);
+    expect(parsed?.args!.protocolFees).to.equal(0);
+    expect(parsed?.args!.totalFees).to.equal(totalFees);
     expect(parsed?.args!.totalRefunds).to.equal(totalRefunds);
   }
 
@@ -113,7 +139,30 @@ describe("Profit Unlocking", () => {
     await addStrategy(vault, strategy, governance);
     await addDebtToStrategy(vault, strategy, debt_amount, governance);
   }
+async function consoleCheckVaultTotals(
+  expectedDebt: bigint,
+  expectedIdle: bigint,
+  expectedAssets: bigint,
+  expectedSupply: bigint
+) {
+  const [vaultDebt, vaultAssets, vaultSupplyRaw, vaultDecimals, usdcDecimals] = await Promise.all([
+    vault.totalDebt(),
+    vault.totalAssets(),
+    vault.totalSupply(),
+    vault.decimals(),
+    usdc.decimals(),
+  ]);
 
+  const vaultSupply = vaultSupplyRaw / 10n ** (vaultDecimals - usdcDecimals);
+  const actualIdle = vaultAssets - vaultDebt;
+
+  console.log("======== consoleCheckVaultTotals ========");
+  console.log(`Debt:         expected = ${expectedDebt}, actual = ${vaultDebt}`);
+  console.log(`Idle:         expected = ${expectedIdle}, actual = ${actualIdle}`);
+  console.log(`Assets:       expected = ${expectedAssets}, actual = ${vaultAssets}`);
+  console.log(`Total Supply: expected = ${expectedSupply}, actual = ${vaultSupply}`);
+  console.log("=========================================");
+}
   let fishAmount = parseUnits("10000", 6);
   it("test gain no fees no refunds no exitsting buffer", async () => {
     let amount = fishAmount / 10n;
@@ -186,5 +235,91 @@ describe("Profit Unlocking", () => {
     expect(await usdc.balanceOf(await vault.getAddress())).to.equal(0n);
 
     await expect(vault.connect(alice).redeem(await vault.balanceOf(alice.address), alice.address, alice.address)).to.be.revertedWith("No shares to redeem");
+  });
+  /* TEST LOSS */
+  describe("Test Lost Case", () => {
+    it("test loss no fees no refunds no existing buffer", async () => {
+      const fishAmount = parseUnits("10000", 6);
+      const amount = fishAmount / 10n;
+      const firstLoss = fishAmount / 20n;
+      const managementFee = 0n;
+      const performanceFee = 0n;
+      const refundRatio = 0n;
+      await initialSetUp(flexibleAccountant, amount, managementFee, performanceFee, refundRatio, amount);
+      await createAndCheckLoss(strategy, governance, vault, firstLoss, 0n);
+      console.log("price per share: (expect 0.5n):", await vault.pricePerShare()); // OK
+      expect(await vault.balanceOf(await vault.getAddress())).to.equal(0n);
+      await checkVaultTotals(amount - firstLoss, 0n, amount - firstLoss, amount);
+      await addDebtToStrategy(vault, strategy, 0n, governance);
+      expect((await vault.strategies(await strategy.getAddress())).currentDebt).to.equal(0n);
+      console.log("price per share: (expect 0.5n):", await vault.pricePerShare());
+      await checkVaultTotals(0n, amount - firstLoss, amount - firstLoss, amount);
+      await vault.connect(alice)["redeem(uint256,address,address)"](await vault.balanceOf(alice.address), alice.address, alice.address);
+      await checkPricePerShare(1n);
+      await checkVaultTotals(0n, 0n, 0n, 0n);
+      expect(await usdc.balanceOf(alice.address)).to.equal(amount - firstLoss); // 500_000_000
+    });
+    it("test loss fees no refunds no existing buffer", async () => {
+      const fishAmount = parseUnits("10000", 6);
+      const amount = fishAmount / 10n;
+      const firstLoss = fishAmount / 20n;
+      const managementFee = 10_000n;
+      const performanceFee = 0n;
+      const refundRatio = 0n;
+      await initialSetUp(flexibleAccountant, amount, managementFee, performanceFee, refundRatio, amount);
+      const totalFees = 0n; // no refund, no buffer
+      await createAndCheckLoss(strategy, governance, vault, firstLoss, totalFees);
+      const feesShares = await vault.convertToShares(totalFees);
+      // PPS ~ 0.5
+      expect((await vault.pricePerShare()) / 10n ** (await vault.decimals())).to.be.lt(
+        parseUnits("0.5", await vault.decimals())
+      );
+      expect(await vault.balanceOf(await vault.getAddress())).to.equal(0n);
+      await checkVaultTotals(amount - firstLoss, 0n, amount - firstLoss, amount + feesShares);
+      await addDebtToStrategy(vault, strategy, 0n, governance);
+      const aliceShares = await vault.balanceOf(alice.address);
+      await vault.connect(alice)["redeem(uint256,address,address)"](aliceShares, alice.address, alice.address);
+      await checkVaultTotals(
+        0n,
+        totalFees,
+        totalFees,
+        await vault.balanceOf(await flexibleAccountant.getAddress())
+      );
+      expect(await usdc.balanceOf(alice.address)).to.be.lt(fishAmount - firstLoss);
+      const accAddr = await flexibleAccountant.getAddress();
+      const accShares = await vault.balanceOf(accAddr);
+      if (accShares > 0n) {
+        await vault.connect(governance)["redeem(uint256,address,address)"](accShares, accAddr, accAddr);
+      }
+      await checkVaultTotals(0n, 0n, 0n, 0n);
+    });
+
+    it("test loss no fees refunds no existing buffer", async () => {
+      const fishAmount = parseUnits("10000", 6);
+      const amount = fishAmount / 10n;
+      const firstLoss = fishAmount / 10n;
+      const managementFee = 0n;
+      const performanceFee = 0n;
+      const refundRatio = 10_000n;
+      await initialSetUp(flexibleAccountant, amount, managementFee, performanceFee, refundRatio, amount);
+      const totalRefunds = (firstLoss * refundRatio) / MAX_BPS_ACCOUNTANT;
+      await createAndCheckLoss(strategy, governance, vault, firstLoss, 0n, totalRefunds);
+      await checkPricePerShare(1n);
+      expect(await vault.balanceOf(await vault.getAddress())).to.equal(0n);
+      await checkVaultTotals(0n, totalRefunds, totalRefunds, amount);
+      expect(await vault.balanceOf(await flexibleAccountant.getAddress())).to.equal(0n);
+      await expect(
+        vault.connect(governance).updateDebt(await strategy.getAddress(), 0n, 0)
+      ).to.be.revertedWith("No debt change");
+      expect((await vault.strategies(await strategy.getAddress())).currentDebt).to.equal(0n);
+      await checkPricePerShare(1n);
+      await checkVaultTotals(0n, totalRefunds, totalRefunds, amount);
+      await vault.connect(alice)["redeem(uint256,address,address)"](await vault.balanceOf(alice.address), alice.address, alice.address);
+      await checkPricePerShare(1n);
+      await checkVaultTotals(0n, 0n, 0n, 0n);
+      expect(await usdc.balanceOf(alice.address)).to.equal(fishAmount / 10n);
+    });
+
+    
   });
 });
