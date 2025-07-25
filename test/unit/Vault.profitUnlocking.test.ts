@@ -319,7 +319,110 @@ async function consoleCheckVaultTotals(
       await checkVaultTotals(0n, 0n, 0n, 0n);
       expect(await usdc.balanceOf(alice.address)).to.equal(fishAmount / 10n);
     });
+  xit("test loss fees refunds with buffer", async () => {
+    const fishAmount = parseUnits("10000", 6);
+    const amount = fishAmount / 10n;
+    const firstProfit = fishAmount / 10n;
+    const firstLoss = fishAmount / 10n;
 
-    
+    const managementFee = 500n;
+    const performanceFee = 0n;
+    const refundRatio = 10_000n; // 100% refund
+
+    await initialSetUp(
+      flexibleAccountant,
+      amount,
+      managementFee,
+      performanceFee,
+      refundRatio,
+      2n * amount // buffer for refund
+    );
+
+    const totalRefunds = (firstProfit * refundRatio) / MAX_BPS_ACCOUNTANT;
+
+    await createAndCheckProfit(firstProfit, 0n, totalRefunds);
+    const totalFees = 0n;
+    await checkPricePerShare(1n);
+    await checkVaultTotals(
+      amount + firstProfit,
+      totalRefunds,
+      amount + firstProfit + totalRefunds,
+      amount + firstProfit + totalRefunds
+    );
+
+    const expected = (totalRefunds + (firstProfit - totalFees)) * 10n ** 12n;
+    expect(await vault.balanceOf(await vault.getAddress())).to.be.closeTo(
+      expected,
+      1n
+    );
+    console.log("Vault balance of:", (await vault.balanceOf(await vault.getAddress())).toString());
+    console.log("Expected Vault balance:", expected.toString());
+    expect(await vault.balanceOf(await flexibleAccountant.getAddress())).to.equal(totalFees);
+
+    await increaseTimeAndCheckProfitBuffer(
+      WEEK / 2,
+      ((firstProfit - totalFees) / 2n + totalRefunds / 2n) * 10n ** 12n
+    );
+    expect(await vault.balanceOf(await vault.getAddress())).to.be.closeTo(
+      (firstProfit / 2n + totalRefunds / 2n) * 10n ** 12n,
+      1n
+    );
+    console.log("Vault balance actual:", (await vault.balanceOf(await vault.getAddress())).toString());
+    console.log("Vault balance expected:", ((firstProfit / 2n + totalRefunds / 2n) * 10n ** 12n).toString());
+    await checkVaultTotals(
+      amount + firstProfit,
+      totalRefunds,
+      amount + firstProfit + totalRefunds,
+      amount + (firstProfit - totalFees) / 2n + totalRefunds / 2n + totalFees
+    );
+
+    const totalSecondRefunds = (firstLoss * refundRatio) / MAX_BPS_ACCOUNTANT;
+    await createAndCheckLoss(strategy, governance, vault, firstLoss, 0n, totalSecondRefunds);
+
+    console.log("total second fees must > 0", await vault.convertToShares(totalSecondRefunds));
+    await increaseTimeAndCheckProfitBuffer();
+    const pps = (await vault.pricePerShare()) / 10n ** (await vault.decimals());
+    expect(pps).to.be.lessThan(3.0);
+
+    await checkVaultTotals(
+      amount + firstProfit - firstLoss,
+      totalRefunds + totalSecondRefunds,
+      amount + firstProfit - firstLoss + totalRefunds + totalSecondRefunds,
+      amount + totalFees
+    );
+    await addDebtToStrategy(vault, strategy, 0n, governance);
+    await checkVaultTotals(
+      0n,
+      amount + firstProfit - firstLoss + totalRefunds + totalSecondRefunds,
+      amount + firstProfit - firstLoss + totalRefunds + totalSecondRefunds,
+      amount + totalFees
+    );
+
+    expect(await vault.pricePerShare() / 10n ** (await vault.decimals())).to.be.lessThan(3.0);
+    expect((await vault.strategies(await strategy.getAddress())).currentDebt).to.equal(0n);
+
+    const fishShares = await vault.balanceOf(alice.address);
+    await vault.connect(alice)["redeem(uint256,address,address)"](fishShares, alice.address, alice.address);
+
+    expect(await vault.totalSupply()).to.be.closeTo(totalFees, totalFees / 10000n);
+
+    const aliceBalance = await usdc.balanceOf(alice.address);
+    const expectedMin = amount;
+    const expectedMax = amount + firstProfit + totalRefunds + totalSecondRefunds; // 3000 USDC
+    console.log("alice bal:", aliceBalance.toString());
+    console.log("expected min:", expectedMin.toString());
+    console.log("expected max:", expectedMax.toString());
+    expect(aliceBalance).to.be.gt(expectedMin);
+    expect(aliceBalance).to.be.lt(expectedMax);
+    const accShares = await vault.balanceOf(await flexibleAccountant.getAddress());
+    if (accShares > 0) {
+      await vault.connect(governance)["redeem(uint256,address,address)"](
+        accShares,
+        await flexibleAccountant.getAddress(),
+        await flexibleAccountant.getAddress()
+      );
+    }
+    await checkVaultTotals(0n, 0n, 0n, 0n);
+  });
   });
 });
