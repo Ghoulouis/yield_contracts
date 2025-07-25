@@ -16,6 +16,7 @@ import {IVault} from "../../../interfaces/IVault.sol";
 import {IStrategy} from "../../../interfaces/IStrategy.sol";
 import {IAccountant} from "../../../interfaces/IAccountant.sol";
 
+import "hardhat/console.sol";
 library DebtLogic {
     using ERC20Logic for DataTypes.VaultData;
     using ERC4626Logic for DataTypes.VaultData;
@@ -224,7 +225,7 @@ library DebtLogic {
                 ) == 0,
                 "Unrealised losses"
             );
-
+            console.log(" assetsToWithdraw ", assetsToWithdraw);
             if (assetsToWithdraw == 0) return currentDebt;
 
             uint256 preBalance = IERC20(vault.asset()).balanceOf(address(this));
