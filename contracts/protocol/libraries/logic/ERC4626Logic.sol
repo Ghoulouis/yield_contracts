@@ -6,6 +6,7 @@ import {IStrategy} from "../../../interfaces/IStrategy.sol";
 import {IDepositLimitModule} from "../../../interfaces/IDepositLimitModule.sol";
 import {Math} from "@openzeppelin/contracts/utils/math/Math.sol";
 
+import {ManagementFeeLogic} from "./internal/ManagementFeeLogic.sol";
 import {DataTypes} from "../types/DataTypes.sol";
 import {Constants} from "../Constants.sol";
 import {ERC20Logic} from "./ERC20Logic.sol";
@@ -22,7 +23,6 @@ library ERC4626Logic {
         address receiver
     ) internal view returns (uint256) {
         if (receiver == address(0) || receiver == address(this)) return 0; // todo add pause check
-
         if (vault.depositLimitModule != address(0)) {
             return
                 IDepositLimitModule(vault.depositLimitModule)
@@ -136,6 +136,34 @@ library ERC4626Logic {
         return have;
     }
 
+    function previewDeposit(
+        DataTypes.VaultData storage vault,
+        uint256 assets
+    ) external view returns (uint256) {
+        return _convertToSharesWithFee(vault, assets, Math.Rounding.Floor);
+    }
+
+    function previewMint(
+        DataTypes.VaultData storage vault,
+        uint256 shares
+    ) external view returns (uint256) {
+        return _convertToAssetsWithFee(vault, shares, Math.Rounding.Ceil);
+    }
+
+    function previewWithdraw(
+        DataTypes.VaultData storage vault,
+        uint256 assets
+    ) external view returns (uint256) {
+        return _convertToSharesWithFee(vault, assets, Math.Rounding.Ceil);
+    }
+
+    function previewRedeem(
+        DataTypes.VaultData storage vault,
+        uint256 shares
+    ) external view returns (uint256) {
+        return _convertToAssetsWithFee(vault, shares, Math.Rounding.Floor);
+    }
+
     function convertToAssets(
         DataTypes.VaultData storage vault,
         uint256 shares
@@ -143,11 +171,57 @@ library ERC4626Logic {
         return vault._convertToAssets(shares, Math.Rounding.Floor);
     }
 
+    function convertToAssets(
+        DataTypes.VaultData storage vault,
+        uint256 shares,
+        Math.Rounding rounding
+    ) external view returns (uint256) {
+        return vault._convertToAssets(shares, rounding);
+    }
+
+    function convertToAssetsWithFee(
+        DataTypes.VaultData storage vault,
+        uint256 shares
+    ) external view returns (uint256) {
+        return vault._convertToAssetsWithFee(shares, Math.Rounding.Floor);
+    }
+
+    function convertToAssetsWithFee(
+        DataTypes.VaultData storage vault,
+        uint256 shares,
+        Math.Rounding rounding
+    ) external view returns (uint256) {
+        return vault._convertToAssetsWithFee(shares, rounding);
+    }
+
     function convertToShares(
         DataTypes.VaultData storage vault,
         uint256 assets
     ) external view returns (uint256) {
         return vault._convertToShares(assets, Math.Rounding.Floor);
+    }
+
+    function convertToShares(
+        DataTypes.VaultData storage vault,
+        uint256 assets,
+        Math.Rounding rounding
+    ) external view returns (uint256) {
+        return vault._convertToShares(assets, rounding);
+    }
+
+    function convertToSharesWithFee(
+        DataTypes.VaultData storage vault,
+        uint256 assets
+    ) external view returns (uint256) {
+        return vault._convertToSharesWithFee(assets, Math.Rounding.Floor);
+    }
+
+    function convertToSharesWithFee(
+        DataTypes.VaultData storage vault,
+        uint256 assets,
+        Math.Rounding rounding
+    ) external view returns (uint256) {
+        return vault._convertToSharesWithFee(assets, rounding);
     }
 
     function _convertToAssets(
@@ -171,6 +245,52 @@ library ERC4626Logic {
             amount++;
         }
         return amount;
+    }
+
+    function _convertToAssetsWithFee(
+        DataTypes.VaultData storage vault,
+        uint256 shares,
+        Math.Rounding rounding
+    ) internal view returns (uint256) {
+        if (shares == type(uint256).max || shares == 0) {
+            return shares;
+        }
+
+        uint256 totalSupply = vault.totalSupplyWithFee();
+        uint256 totalAssets = vault.totalAssets();
+
+        if (totalSupply == 0) {
+            return shares;
+        }
+        uint256 numerator = shares * totalAssets;
+        uint256 amount = numerator / totalSupply;
+        if (rounding == Math.Rounding.Ceil && numerator % totalSupply != 0) {
+            amount++;
+        }
+        return amount;
+    }
+
+    function _convertToSharesWithFee(
+        DataTypes.VaultData storage vault,
+        uint256 assets,
+        Math.Rounding rounding
+    ) internal view returns (uint256) {
+        if (assets == type(uint256).max || assets == 0) {
+            return assets;
+        }
+
+        uint256 totalSupply = vault.totalSupplyWithFee();
+        uint256 totalAssets = vault.totalAssets();
+
+        if (totalSupply == 0) {
+            return assets;
+        }
+        uint256 numerator = assets * totalSupply;
+        uint256 shares = numerator / totalAssets;
+        if (rounding == Math.Rounding.Ceil && numerator % totalAssets != 0) {
+            shares++;
+        }
+        return shares;
     }
 
     function _convertToShares(
@@ -201,5 +321,13 @@ library ERC4626Logic {
     ) external view returns (uint256) {
         return
             vault._convertToAssets(10 ** vault.decimals(), Math.Rounding.Floor);
+    }
+
+    function totalSupplyWithFee(
+        DataTypes.VaultData storage vault
+    ) internal view returns (uint256) {
+        return
+            vault.totalSupply() +
+            ManagementFeeLogic.viewCalculateManagementFee(vault);
     }
 }

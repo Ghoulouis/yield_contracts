@@ -33,9 +33,10 @@ library DebtLogic {
             vault.strategies[strategy].activation != 0,
             "Inactive strategy"
         );
-        address _asset = vault.asset();
+        address asset = vault.asset();
         uint256 totalAssets;
         uint256 currentDebt;
+
         if (strategy != address(this)) {
             require(
                 vault.strategies[strategy].activation != 0,
@@ -47,7 +48,7 @@ library DebtLogic {
             totalAssets = IStrategy(strategy).convertToAssets(strategyShares);
             currentDebt = vault.strategies[strategy].currentDebt;
         } else {
-            totalAssets = IERC20(_asset).balanceOf(address(this));
+            totalAssets = IERC20(asset).balanceOf(address(this));
             currentDebt = vault.totalIdle;
         }
         if (totalAssets > currentDebt) {
@@ -66,8 +67,8 @@ library DebtLogic {
             totalRefunds = Math.min(
                 totalRefunds,
                 Math.min(
-                    IERC20(_asset).balanceOf(vault.accountant),
-                    IERC20(_asset).allowance(vault.accountant, address(this))
+                    IERC20(asset).balanceOf(vault.accountant),
+                    IERC20(asset).allowance(vault.accountant, address(this))
                 )
             );
         }
@@ -75,11 +76,14 @@ library DebtLogic {
         uint256 protocolFeesShares;
         uint256 sharesToBurn;
         if (loss + totalFees > 0) {
-            sharesToBurn = vault.convertToShares(loss + totalFees);
+            sharesToBurn = vault.convertToShares(
+                loss + totalFees,
+                Math.Rounding.Ceil
+            );
             if (totalFees > 0) {
-                totalFeesShares =
-                    (sharesToBurn * totalFees) /
-                    (loss + totalFees);
+                // totalFeesShares =
+                //     (sharesToBurn * totalFees) /
+                //     (loss + totalFees);
                 // if (vault.protocolFeeBps > 0) {
                 //     protocolFeesShares =
                 //         (totalFeesShares * vault.protocolFeeBps) /
@@ -89,32 +93,40 @@ library DebtLogic {
         }
         uint256 sharesToLock;
         if (gain + totalRefunds > 0 && vault.profitMaxUnlockTime != 0) {
-            sharesToLock = vault.convertToShares(gain + totalRefunds);
+            sharesToLock = vault.convertToShares(
+                gain + totalRefunds,
+                Math.Rounding.Floor
+            );
         }
-        uint256 lockedShares = vault.unlockShares();
-        uint256 totalSupply = vault.totalSupply() + lockedShares;
-        uint256 endingSupply = totalSupply +
-            sharesToLock -
-            sharesToBurn -
-            lockedShares;
-        uint256 totalLockedShares = vault.balanceOf(address(this));
+
+        uint256 totalSupply = vault.totalSupply(); // =  totalSupply - _unlockShares()
+        uint256 unlockShares = vault.unlockShares();
+        uint256 endingSupply = totalSupply + sharesToLock - sharesToBurn;
+
         // mint reward
-        if (endingSupply > totalSupply) {
-            vault._mint(address(this), endingSupply - totalSupply);
+        if (endingSupply > totalSupply + unlockShares) {
+            vault._mint(
+                address(this),
+                endingSupply - totalSupply - unlockShares
+            );
         }
         // burn reward
-        if (totalSupply > endingSupply) {
+        uint256 totalLockedShares = vault.balanceOf(address(this));
+
+        if (totalSupply + unlockShares > endingSupply) {
             uint256 toBurn = Math.min(
-                totalSupply - endingSupply,
+                totalSupply + unlockShares - endingSupply,
                 totalLockedShares
             );
             vault._burn(address(this), toBurn);
         }
+
         if (sharesToLock > sharesToBurn) {
             sharesToLock -= sharesToBurn;
         } else {
             sharesToLock = 0;
         }
+
         if (totalRefunds > 0) {
             IERC20(vault.asset()).safeTransferFrom(
                 vault.accountant,
@@ -123,6 +135,7 @@ library DebtLogic {
             );
             vault.totalIdle += totalRefunds;
         }
+
         if (gain > 0) {
             currentDebt += gain;
             if (strategy != address(this)) {
@@ -133,6 +146,7 @@ library DebtLogic {
                 vault.totalIdle = currentDebt;
             }
         }
+
         if (loss > 0) {
             currentDebt -= loss;
             if (strategy != address(this)) {
@@ -143,12 +157,14 @@ library DebtLogic {
                 vault.totalIdle = currentDebt;
             }
         }
-        // if (totalFeesShares > 0) {
-        //     vault.mint(vault.beneficiary, totalFeesShares - protocolFeesShares);
-        //     if (protocolFeesShares > 0) {
-        //         vault.mint(vault.protocolFeeRecipient, protocolFeesShares);
-        //     }
-        // }
+        if (totalFeesShares > 0) {
+            vault._mint(vault.accountant, totalFeesShares - protocolFeesShares);
+            if (protocolFeesShares > 0) {
+                vault._mint(vault.accountant, protocolFeesShares);
+            }
+        }
+
+        // Update unlocking rate and time to fully unlocked.
         totalLockedShares = vault.balanceOf(address(this));
         if (totalLockedShares > 0) {
             uint256 previouslyLockedTime;
@@ -170,19 +186,20 @@ library DebtLogic {
         } else {
             vault.fullProfitUnlockDate = 0;
         }
+
         vault.strategies[strategy].lastReport = block.timestamp;
         if (
             loss + totalFees > gain + totalRefunds ||
             vault.profitMaxUnlockTime == 0
         ) {
-            totalFees = vault.convertToAssets(totalFeesShares);
+            totalFees = vault.convertToAssets(0);
         }
         emit IVault.StrategyReported(
             strategy,
             gain,
             loss,
             currentDebt,
-            protocolFeesShares,
+            0,
             totalFees,
             totalRefunds
         );

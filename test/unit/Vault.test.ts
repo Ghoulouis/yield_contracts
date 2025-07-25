@@ -1,6 +1,7 @@
+import { red } from "./../../node_modules/@colors/colors/index.d";
 import { HardhatEthersSigner } from "@nomicfoundation/hardhat-ethers/signers";
 import { ERC20Mintable, ERC20Mintable__factory, MockStrategy, MockStrategy__factory, Vault, Vault__factory } from "../../typechain-types";
-import { ethers, getNamedAccounts } from "hardhat";
+import { ethers, getNamedAccounts, network } from "hardhat";
 import hre from "hardhat";
 import { ethers as ethersv6, MaxUint256, parseUnits } from "ethers";
 import { addDebtToStrategy, addStrategy, mintAndDeposit, setDepositLimit, setDepositLimitModule, setLock, setLoss, updateDebt } from "../helper";
@@ -65,7 +66,7 @@ describe("ERC 4626", () => {
     });
   });
 
-  xdescribe("test withdraw", () => {
+  describe("test withdraw", () => {
     let amount = parseUnits("1000", 6);
 
     beforeEach(async () => {
@@ -112,6 +113,27 @@ describe("ERC 4626", () => {
       await updateDebt(vault, strategy, debtAmount, governance);
 
       //await setLoss(strategy, loss, governance);
+    });
+  });
+
+  describe("Management Fee", () => {
+    it("Can update management fee", async () => {
+      let newFee = 100; // 1%
+      await vault.connect(governance).setManagementFee(newFee);
+      let postFee = (await vault.vaultData()).managementFee;
+      expect(postFee).to.be.equal(newFee);
+    });
+    it("Calculate management Fee", async () => {
+      let newFee = 100; // 1%
+      await vault.connect(governance).setManagementFee(newFee);
+      await vault.connect(governance).setFeeRecipient(bob.address);
+      let amount = parseUnits("1000", 6);
+      await mintAndDeposit(vault, usdc, amount, alice);
+      await network.provider.send("evm_increaseTime", [365 * 24 * 60 * 60 - 1]);
+      await network.provider.send("evm_mine");
+      await expect(vault.connect(alice).redeem(amount, alice.address, alice.address))
+        .to.be.emit(vault, "ManagementFeeMinted")
+        .withArgs(bob.address, amount / 100n);
     });
   });
 });

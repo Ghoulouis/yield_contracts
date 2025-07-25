@@ -148,7 +148,6 @@ describe("Profit Unlocking", () => {
 
     await initialSetUp(flexibleAccountant, amount, managementFee, performentFee, refundRatio, firstProfit / 10n);
     await createAndCheckProfit(firstProfit, 0n, firstProfit / 10n);
-
     expect(await vault.convertToAssets(await vault.balanceOf(await vault.getAddress()))).to.equal(firstProfit + firstProfit / 10n);
 
     await checkPricePerShare(1n);

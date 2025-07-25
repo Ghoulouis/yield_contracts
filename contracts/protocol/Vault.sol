@@ -25,6 +25,8 @@ import {UnlockSharesLogic} from "./libraries/logic/UnlockSharesLogic.sol";
 import {DebtLogic} from "./libraries/logic/DebtLogic.sol";
 import {ConfiguratorLogic} from "./libraries/logic/ConfiguratorLogic.sol";
 import {IVault} from "../interfaces/IVault.sol";
+
+import {ManagementFeeLogic} from "./libraries/logic/internal/ManagementFeeLogic.sol";
 import "hardhat/console.sol";
 contract Vault is
     IVault,
@@ -34,7 +36,6 @@ contract Vault is
     PausableUpgradeable,
     AccessControlUpgradeable
 {
-    using ERC4626Logic for DataTypes.VaultData;
     using DepositLogic for DataTypes.VaultData;
     using WithdrawLogic for DataTypes.VaultData;
 
@@ -149,6 +150,12 @@ contract Vault is
         return super.totalSupply() - UnlockSharesLogic.unlockShares(vaultData);
     }
 
+    function totalSupplyWithFee() public view returns (uint256) {
+        return
+            totalSupply() +
+            ManagementFeeLogic.viewCalculateManagementFee(vaultData);
+    }
+
     function totalAssets()
         public
         view
@@ -161,19 +168,19 @@ contract Vault is
     function maxDeposit(
         address receiver
     ) public view override(ERC4626Upgradeable, IVault) returns (uint256) {
-        return vaultData.maxDeposit(receiver);
+        return ERC4626Logic.maxDeposit(vaultData, receiver);
     }
 
     function maxMint(
         address user
     ) public view override(ERC4626Upgradeable, IERC4626) returns (uint256) {
-        return vaultData.maxDeposit(user);
+        return ERC4626Logic.maxDeposit(vaultData, user);
     }
 
     function maxWithdraw(
         address owner
     ) public view override(ERC4626Upgradeable, IVault) returns (uint256) {
-        return vaultData.maxWithdraw(owner);
+        return ERC4626Logic.maxWithdraw(vaultData, owner);
     }
 
     function maxWithdraw(
@@ -181,37 +188,37 @@ contract Vault is
         uint256 maxLoss,
         address[] memory _strategies
     ) public view returns (uint256) {
-        return vaultData.maxWithdraw(owner, maxLoss, _strategies);
+        return ERC4626Logic.maxWithdraw(vaultData, owner, maxLoss, _strategies);
     }
 
     function maxRedeem(
         address owner
     ) public view override(ERC4626Upgradeable, IERC4626) returns (uint256) {
-        return vaultData.maxRedeem(owner);
+        return ERC4626Logic.maxRedeem(vaultData, owner);
     }
 
     function previewDeposit(
         uint256 assets
     ) public view override(ERC4626Upgradeable, IERC4626) returns (uint256) {
-        return super.previewDeposit(assets);
+        return ERC4626Logic.previewDeposit(vaultData, assets);
     }
 
     function previewMint(
         uint256 shares
     ) public view override(ERC4626Upgradeable, IERC4626) returns (uint256) {
-        return super.previewMint(shares);
+        return ERC4626Logic.previewMint(vaultData, shares);
     }
 
     function previewWithdraw(
         uint256 assets
     ) public view override(ERC4626Upgradeable, IERC4626) returns (uint256) {
-        return super.previewWithdraw(assets);
+        return ERC4626Logic.previewWithdraw(vaultData, assets);
     }
 
     function previewRedeem(
         uint256 shares
     ) public view override(ERC4626Upgradeable, IERC4626) returns (uint256) {
-        return super.previewRedeem(shares);
+        return ERC4626Logic.previewRedeem(vaultData, shares);
     }
 
     function deposit(
@@ -224,6 +231,7 @@ contract Vault is
         whenNotPaused
         returns (uint256)
     {
+        ManagementFeeLogic.caculateManagementFee(vaultData);
         return super.deposit(assets, receiver);
     }
 
@@ -237,6 +245,7 @@ contract Vault is
         whenNotPaused
         returns (uint256)
     {
+        ManagementFeeLogic.caculateManagementFee(vaultData);
         return super.mint(shares, receiver);
     }
 
@@ -260,11 +269,12 @@ contract Vault is
         address receiver,
         address owner
     ) public override(ERC4626Upgradeable, IERC4626) returns (uint256) {
-        uint256 assets = vaultData._convertToAssets(
+        ManagementFeeLogic.caculateManagementFee(vaultData);
+        uint256 assets = ERC4626Logic.convertToAssets(
+            vaultData,
             shares,
             Math.Rounding.Floor
         );
-
         return
             WithdrawLogic.executeRedeem(
                 vaultData,
@@ -283,6 +293,7 @@ contract Vault is
         address receiver,
         address owner
     ) public override(ERC4626Upgradeable, IVault) returns (uint256) {
+        ManagementFeeLogic.caculateManagementFee(vaultData);
         uint256 shares = _convertToShares(assets, Math.Rounding.Ceil);
         return
             WithdrawLogic.executeRedeem(
@@ -300,13 +311,13 @@ contract Vault is
     function convertToAssets(
         uint256 shares
     ) public view override(IERC4626, ERC4626Upgradeable) returns (uint256) {
-        return vaultData.convertToAssets(shares);
+        return ERC4626Logic.convertToAssets(vaultData, shares);
     }
 
     function convertToShares(
         uint256 assets
     ) public view override(IERC4626, ERC4626Upgradeable) returns (uint256) {
-        return vaultData.convertToShares(assets);
+        return ERC4626Logic.convertToShares(vaultData, assets);
     }
 
     // ERC20
@@ -443,6 +454,18 @@ contract Vault is
         );
     }
 
+    function setManagementFee(
+        uint256 newManagementFee
+    ) external onlyRole(Constants.ROLE_GOVERNANCE_MANAGER) {
+        ConfiguratorLogic.ExecuteSetManagementFee(vaultData, newManagementFee);
+    }
+
+    function setFeeRecipient(
+        address newFeeRecipient
+    ) external onlyRole(Constants.ROLE_GOVERNANCE_MANAGER) {
+        ConfiguratorLogic.ExecuteSetFeeRecipient(vaultData, newFeeRecipient);
+    }
+
     // VIEW FUNCTIONS
 
     function strategies(
@@ -452,7 +475,7 @@ contract Vault is
     }
 
     function pricePerShare() public view returns (uint256) {
-        return vaultData.pricePerShare();
+        return ERC4626Logic.pricePerShare(vaultData);
     }
 
     function totalDebt() public view returns (uint256) {

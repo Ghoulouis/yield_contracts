@@ -13,21 +13,26 @@ library DataTypes {
         address addressVault;
         uint256 totalDebt;
         uint256 totalIdle;
+        // strategy
         mapping(address => StrategyData) strategies;
         address[] defaultQueue;
         bool useDefaultQueue;
         bool autoAllocate;
+        // limit
         uint256 minimumTotalIdle;
         uint256 depositLimit;
+        // profit unlocking
         uint256 profitMaxUnlockTime;
         uint256 fullProfitUnlockDate;
         uint256 profitUnlockingRate;
         uint256 lastProfitUpdate;
+        //
         address accountant;
-        address roleModule;
         address depositLimitModule;
         address withdrawLimitModule;
-        uint256 totalPendingWithdraw;
-        mapping(address => uint256) pendingWithdraw;
+        // management fee
+        address feeRecipient;
+        uint256 managementFee;
+        uint256 lastTimeTakeManagementFee;
     }
 }

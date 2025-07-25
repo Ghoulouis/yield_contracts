@@ -47,8 +47,11 @@ interface IVault is IERC4626 {
     event UpdateAutoAllocate(bool autoAllocate);
     event UpdateDepositLimit(uint256 depositLimit);
     event UpdateMinimumTotalIdle(uint256 minimumTotalIdle);
+    event UpdateManagementFee(uint256 managementFee);
+    event UpdateFeeRecipient(address feeRecipient);
     event UpdateProfitMaxUnlockTime(uint256 profitMaxUnlockTime);
     event DebtPurchased(address indexed strategy, uint256 amount);
+    event ManagementFeeMinted(address indexed feeRecipient, uint256 amount);
 
     function mint(address receiver, uint256 assets) external;
 

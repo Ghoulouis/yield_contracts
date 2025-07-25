@@ -6,6 +6,8 @@ import {ERC4626Logic} from "./ERC4626Logic.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import {ERC20Logic} from "./ERC20Logic.sol";
+
+import {ManagementFeeLogic} from "./internal/ManagementFeeLogic.sol";
 import {IStrategy} from "../../../interfaces/IStrategy.sol";
 import {IVault} from "../../../interfaces/IVault.sol";
 import {Constants} from "../Constants.sol";
@@ -172,5 +174,23 @@ library ConfiguratorLogic {
     ) external {
         vault.minimumTotalIdle = newMinimumTotalIdle;
         emit IVault.UpdateMinimumTotalIdle(newMinimumTotalIdle);
+    }
+
+    function ExecuteSetManagementFee(
+        DataTypes.VaultData storage vault,
+        uint256 newManagementFee
+    ) external {
+        ManagementFeeLogic.caculateManagementFee(vault);
+        vault.managementFee = newManagementFee;
+        emit IVault.UpdateManagementFee(newManagementFee);
+    }
+
+    function ExecuteSetFeeRecipient(
+        DataTypes.VaultData storage vault,
+        address newFeeRecipient
+    ) external {
+        ManagementFeeLogic.caculateManagementFee(vault);
+        vault.feeRecipient = newFeeRecipient;
+        emit IVault.UpdateFeeRecipient(newFeeRecipient);
     }
 }

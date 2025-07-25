@@ -8,6 +8,8 @@ library Constants {
     uint256 public constant MAX_BPS = 10_000;
     uint256 public constant MAX_BPS_EXTENDED = 1_000_000_000_000;
 
+    uint256 public constant YEAR = 365 * 24 * 60 * 60;
+
     bytes32 public constant ROLE_GOVERNANCE_MANAGER =
         keccak256("ROLE_GOVERNANCE_MANAGER");
 

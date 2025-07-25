@@ -14,6 +14,7 @@ import {IWithdrawLimitModule} from "../../../interfaces/IWithdrawLimitModule.sol
 import {IStrategy} from "../../../interfaces/IStrategy.sol";
 import {IVault} from "../../../interfaces/IVault.sol";
 
+import {ManagementFeeLogic} from "./internal/ManagementFeeLogic.sol";
 import "hardhat/console.sol";
 
 library WithdrawLogic {
@@ -56,6 +57,8 @@ library WithdrawLogic {
         uint256 maxLoss,
         address[] memory _strategies
     ) internal returns (uint256) {
+        // ManagementFeeLogic.caculateManagementFee(vault);
+
         // require(!paused(), "Vault paused"); // todo check pause
         require(receiver != address(0), "Zero address");
         require(shares > 0, "No shares to redeem");
