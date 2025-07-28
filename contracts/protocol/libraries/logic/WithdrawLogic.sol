@@ -57,9 +57,6 @@ library WithdrawLogic {
         uint256 maxLoss,
         address[] memory _strategies
     ) internal returns (uint256) {
-        // ManagementFeeLogic.caculateManagementFee(vault);
-
-        // require(!paused(), "Vault paused"); // todo check pause
         require(receiver != address(0), "Zero address");
         require(shares > 0, "No shares to redeem");
         require(assets > 0, "No assets to redeem");

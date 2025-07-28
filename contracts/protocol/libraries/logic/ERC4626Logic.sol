@@ -22,7 +22,7 @@ library ERC4626Logic {
         DataTypes.VaultData storage vault,
         address receiver
     ) internal view returns (uint256) {
-        if (receiver == address(0) || receiver == address(this)) return 0; // todo add pause check
+        if (receiver == address(0) || receiver == address(this)) return 0;
         if (vault.depositLimitModule != address(0)) {
             return
                 IDepositLimitModule(vault.depositLimitModule)

@@ -5,7 +5,6 @@ import "@openzeppelin/contracts-upgradeable/token/ERC20/extensions/ERC4626Upgrad
 import "@openzeppelin/contracts-upgradeable/access/AccessControlUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 import "@openzeppelin/contracts-upgradeable/utils/ReentrancyGuardUpgradeable.sol";
-import "@openzeppelin/contracts-upgradeable/utils/PausableUpgradeable.sol";
 import "@openzeppelin/contracts/utils/math/Math.sol";
 import "../interfaces/IStrategy.sol";
 import "../interfaces/IRoleModule.sol";
@@ -33,7 +32,6 @@ contract Vault is
     VaultStorage,
     ERC4626Upgradeable,
     ReentrancyGuardUpgradeable,
-    PausableUpgradeable,
     AccessControlUpgradeable
 {
     using DepositLogic for DataTypes.VaultData;
@@ -54,7 +52,6 @@ contract Vault is
         __ERC20_init(_name, _symbol);
         __ERC4626_init(_asset);
         __ReentrancyGuard_init();
-        __Pausable_init();
         __AccessControl_init();
 
         InitializeLogic.ExecuteInitialize(vaultData, _profitMaxUnlockTime);
@@ -228,7 +225,6 @@ contract Vault is
         public
         override(ERC4626Upgradeable, IVault)
         nonReentrant
-        whenNotPaused
         returns (uint256)
     {
         ManagementFeeLogic.caculateManagementFee(vaultData);
@@ -242,7 +238,6 @@ contract Vault is
         public
         override(ERC4626Upgradeable, IERC4626)
         nonReentrant
-        whenNotPaused
         returns (uint256)
     {
         ManagementFeeLogic.caculateManagementFee(vaultData);
