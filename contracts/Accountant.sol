@@ -4,6 +4,7 @@ pragma solidity ^0.8.24;
 import "./interfaces/IAccountant.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
+import {IVault} from "./interfaces/IVault.sol";
 import "hardhat/console.sol";
 contract Accountant is IAccountant {
     struct Fee {
@@ -39,7 +40,7 @@ contract Accountant is IAccountant {
         address strategy,
         uint256 gain,
         uint256 loss
-    ) external returns (uint256 performanceFee, uint256 refund) {
+    ) external onlyVault returns (uint256 performanceFee, uint256 refund) {
         Fee storage fee = fees[strategy];
         if (gain > 0) {
             performanceFee = (gain * fee.performanceFee) / BASE_BPS;
@@ -75,5 +76,12 @@ contract Accountant is IAccountant {
     ) external onlyGovernance {
         require(_refundRatio <= BASE_BPS, "Invalid refund ratio");
         fees[strategy].refundRatio = _refundRatio;
+    }
+
+    function withdraw(
+        uint256 amount,
+        address receiver
+    ) external onlyGovernance {
+        IVault(vault).withdraw(amount, receiver, address(this));
     }
 }
