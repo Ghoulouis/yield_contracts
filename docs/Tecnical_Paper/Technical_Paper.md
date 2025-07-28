@@ -29,10 +29,20 @@ OmniFarming V2 thu 2 loại phí, bao gồm:
 - Management Fee: 1% 1 năm trên fund
 - Performance Fee: 10% trên profit
 
-Management Fee: Mint lượng lp tương ứng giữa 2 lần deposit/withdraw dựa trên số `totalSupply()`,
+**Management Fee**
+
+Mint lượng lp tương ứng giữa 2 lần deposit/withdraw dựa trên số `totalSupply()`,
 Override các hàm `PreviewMint` `PreviewWithdraw` `PreviewDeposit` `PreviewRedeem` theo công thức mới có tính trước management Fee vào totalSupply
 
-Performance Fee: Thu phí thông qua `Accountant` trong hàm `ExecuteProcessReport`
+**Performance Fee**
+
+Thu phí thông qua `Accountant` trong hàm `ExecuteProcessReport`
+
+Khi một strategy được báo cáo, `Accountant` sẽ tính `performanceFee` và `refund`
+
+- `PerformanceFee`: Fee thu dựa trên lợi nhuận (yêu cầu business 10%), fee này sẽ được chuyển đổi thành lượng liquidity và mint chúng dưới dạng thanh khoản cho `Accountant`
+
+- `refund`: (Forked yearn v3) giá trị trả lại mỗi khi 1 strategy được báo cáo (có thể sử dụng để làm reward boost apy hoặc bù lỗ)
 
 # Function
 

@@ -33,6 +33,7 @@ library ManagementFeeLogic {
     function _calculateManagementFee(
         DataTypes.VaultData storage vault
     ) internal view returns (uint256 feeShares) {
+        if (vault.feeRecipient == address(0)) return 0;
         uint256 totalSupply = vault.totalSupply();
         uint256 totalUserSupply = totalSupply -
             vault.balanceOf(vault.addressVault);

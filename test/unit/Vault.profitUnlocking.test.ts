@@ -62,9 +62,8 @@ describe("Profit Unlocking", () => {
     expect(parsed?.args!.gain).to.closeTo(profit, 1n);
     expect(parsed?.args!.loss).to.equal(0);
     expect(parsed?.args!.currentDebt).to.closeTo(initialDebt + profit, 1n);
-    expect(parsed?.args!.protocolFees).to.equal(0);
-    expect(parsed?.args!.totalFees).to.equal(0);
-    expect(parsed?.args!.totalRefunds).to.equal(totalRefunds);
+    expect(parsed?.args!.performanceFee).to.equal(0);
+    expect(parsed?.args!.refund).to.equal(totalRefunds);
   }
 
   async function checkPricePerShare(price: bigint) {

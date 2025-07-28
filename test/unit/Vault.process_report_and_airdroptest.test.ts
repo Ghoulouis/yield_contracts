@@ -102,9 +102,8 @@ describe("Vault Additional Tests", () => {
       expect(event?.args.gain).to.equal(profit);
       expect(event?.args.loss).to.equal(0);
       expect(event?.args.currentDebt).to.equal(initialDebt + profit);
-      expect(event?.args.protocolFees).to.equal(0);
-      expect(event?.args.totalFees).to.equal(0);
-      expect(event?.args.totalRefunds).to.equal(0);
+      expect(event?.args.performanceFee).to.equal(0);
+      expect(event?.args.refund).to.equal(0);
       expect(await vault.totalDebt()).to.equal(initialTotalDebt + profit);
       expect(await getStrategyBalance(strategy, usdc)).to.equal(initialDebt + profit);
     });
@@ -128,8 +127,8 @@ describe("Vault Additional Tests", () => {
       expect(event?.args.gain).to.equal(0);
       expect(event?.args.loss).to.equal(0);
       expect(event?.args.currentDebt).to.equal(initialDebt);
-      expect(event?.args.totalFees).to.equal(0);
-      expect(event?.args.totalRefunds).to.equal(0);
+      expect(event?.args.performanceFee).to.equal(0);
+      expect(event?.args.refund).to.equal(0);
       expect(await vault.totalDebt()).to.equal(initialTotalDebt);
     });
 
@@ -162,9 +161,8 @@ describe("Vault Additional Tests", () => {
       expect(event?.args.gain).to.equal(profit);
       expect(event?.args.loss).to.equal(0);
       expect(event?.args.currentDebt).to.equal(initialDebt + profit);
-      expect(event?.args.protocolFees).to.equal(0);
-      expect(event?.args.totalFees).to.equal(0);
-      expect(event?.args.totalRefunds).to.equal(0);
+      expect(event?.args.performanceFee).to.equal(0);
+      expect(event?.args.refund).to.equal(0);
       expect(await vault.totalDebt()).to.equal(initialTotalDebt + profit);
       expect(await getStrategyBalance(strategy, usdc)).to.equal(initialDebt + profit);
     });
@@ -188,8 +186,8 @@ describe("Vault Additional Tests", () => {
       expect(event?.args.gain).to.equal(0);
       expect(event?.args.loss).to.equal(0);
       expect(event?.args.currentDebt).to.equal(initialDebt);
-      expect(event?.args.totalFees).to.equal(0);
-      expect(event?.args.totalRefunds).to.equal(0);
+      expect(event?.args.performanceFee).to.equal(0);
+      expect(event?.args.refund).to.equal(0);
       expect(await vault.totalDebt()).to.equal(initialTotalDebt);
     });
   });

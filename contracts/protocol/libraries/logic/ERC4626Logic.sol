@@ -323,6 +323,16 @@ library ERC4626Logic {
             vault._convertToAssets(10 ** vault.decimals(), Math.Rounding.Floor);
     }
 
+    function pricePerShareWithFee(
+        DataTypes.VaultData storage vault
+    ) external view returns (uint256) {
+        return
+            vault._convertToAssetsWithFee(
+                10 ** vault.decimals(),
+                Math.Rounding.Floor
+            );
+    }
+
     function totalSupplyWithFee(
         DataTypes.VaultData storage vault
     ) internal view returns (uint256) {

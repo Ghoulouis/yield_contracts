@@ -30,9 +30,8 @@ interface IVault is IERC4626 {
         uint256 gain,
         uint256 loss,
         uint256 currentDebt,
-        uint256 protocolFees,
-        uint256 totalFees,
-        uint256 totalRefunds
+        uint256 performanceFee,
+        uint256 refund
     );
     event DebtUpdated(
         address indexed strategy,

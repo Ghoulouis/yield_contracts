@@ -97,7 +97,7 @@ library ConfiguratorLogic {
             require(force, "Strategy has debt");
             uint256 loss = vault.strategies[strategy].currentDebt;
             vault.totalDebt -= loss;
-            emit IVault.StrategyReported(strategy, 0, loss, 0, 0, 0, 0);
+            emit IVault.StrategyReported(strategy, 0, loss, 0, 0, 0);
         }
 
         delete vault.strategies[strategy];

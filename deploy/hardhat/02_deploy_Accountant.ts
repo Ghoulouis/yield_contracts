@@ -1,3 +1,4 @@
+import { addresses } from "./../../utils/address";
 import { DeployFunction } from "hardhat-deploy/types";
 import { HardhatRuntimeEnvironment } from "hardhat/types";
 
@@ -15,15 +16,7 @@ const deploy: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
     from: deployer,
     log: true,
     autoMine: true,
-    proxy: {
-      owner: deployer,
-      execute: {
-        init: {
-          methodName: "initialize",
-          args: [deployer],
-        },
-      },
-    },
+    args: [usdc.address, vault.address, deployer],
   });
 };
 deploy.tags = ["accountant"];

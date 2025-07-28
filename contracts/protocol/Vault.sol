@@ -477,6 +477,9 @@ contract Vault is
     function pricePerShare() public view returns (uint256) {
         return ERC4626Logic.pricePerShare(vaultData);
     }
+    function pricePerShareWithFee() public view returns (uint256) {
+        return ERC4626Logic.pricePerShareWithFee(vaultData);
+    }
 
     function totalDebt() public view returns (uint256) {
         return vaultData.totalDebt;

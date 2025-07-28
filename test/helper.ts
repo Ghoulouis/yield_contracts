@@ -106,3 +106,15 @@ export async function setFee(
   let tx3 = await accountant.connect(signer).setRefundRatio(await strategy.getAddress(), refundRatio);
   await tx3.wait();
 }
+
+export async function addProfitToStrategy(strategy: MockStrategy, asset: ERC20Mintable, amount: bigint = 10n ** 6n, signer: HardhatEthersSigner | ethersv6.Wallet) {
+  await asset.connect(signer).mint(await strategy.getAddress(), amount);
+  let tx = await strategy.connect(signer).harvest();
+  return tx.wait();
+}
+
+export async function addLossToStrategy(strategy: MockStrategy, asset: ERC20Mintable, amount: bigint, signer: HardhatEthersSigner | ethersv6.Wallet) {
+  await strategy.connect(signer).setLoss(amount);
+  //let tx = await strategy.connect(signer).harvest();
+  //return tx.wait();
+}
