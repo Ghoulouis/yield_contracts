@@ -1,6 +1,19 @@
+import { DepositLimitModule } from "./../typechain-types/contracts/modules/DepositLimitModule";
 import { red } from "@colors/colors";
 import { HardhatEthersSigner } from "@nomicfoundation/hardhat-ethers/signers";
-import { Accountant, Accountant__factory, ERC20Mintable, ERC20Mintable__factory, MockStrategy, MockStrategy__factory, Vault, Vault__factory } from "../typechain-types";
+import {
+  Accountant,
+  Accountant__factory,
+  DepositLimitModule__factory,
+  ERC20Mintable,
+  ERC20Mintable__factory,
+  MockStrategy,
+  MockStrategy__factory,
+  Vault,
+  Vault__factory,
+  WithdrawLimitModule,
+  WithdrawLimitModule__factory,
+} from "../typechain-types";
 import { ethers, getNamedAccounts, network } from "hardhat";
 import hre from "hardhat";
 import { ethers as ethersv6, MaxUint256, parseUnits } from "ethers";
@@ -19,7 +32,7 @@ import {
 } from "./helper";
 import { expect } from "chai";
 import { SnapshotRestorer, takeSnapshot } from "@nomicfoundation/hardhat-network-helpers";
-describe("ERC 4626", () => {
+describe("Vault", () => {
   let vault: Vault;
   let usdc: ERC20Mintable;
   let provider = hre.ethers.provider;
@@ -260,5 +273,113 @@ describe("ERC 4626", () => {
       });
   });
 
-  describe("Pause", () => {});
+  describe("LimitModule", () => {
+    describe("LimitDepositModule", async () => {
+      let limitDepositModule: DepositLimitModule;
+      beforeEach(async () => {
+        limitDepositModule = DepositLimitModule__factory.connect((await get("DepositLimitModule")).address, governance);
+        await addStrategy(vault, strategy, governance);
+        await mintAndDeposit(vault, usdc, amount, alice);
+        await updateMaxDebt(vault, strategy, amount * 2n, governance);
+        await updateDebt(vault, strategy, amount, governance);
+      });
+      it("set LimitDepositModule with permission should success", async () => {
+        await expect(vault.connect(governance).setDepositLimitModule(await limitDepositModule.getAddress()))
+          .to.be.emit(vault, "UpdateDepositLimitModule")
+          .withArgs(await limitDepositModule.getAddress());
+        let postLimitDepositModule = (await vault.vaultData()).depositLimitModule;
+        expect(postLimitDepositModule).to.be.equal(await limitDepositModule.getAddress());
+      });
+      it("update LimitDepositModule with permission should success", async () => {
+        await vault.connect(governance).setDepositLimitModule(alice.address);
+        let preLimitDepositModule = (await vault.vaultData()).depositLimitModule;
+        expect(preLimitDepositModule).to.be.equal(alice.address);
+        await expect(vault.connect(governance).setDepositLimitModule(await limitDepositModule.getAddress()))
+          .to.be.emit(vault, "UpdateDepositLimitModule")
+          .withArgs(await limitDepositModule.getAddress());
+        let postLimitDepositModule = (await vault.vaultData()).depositLimitModule;
+        expect(postLimitDepositModule).to.be.equal(await limitDepositModule.getAddress());
+      });
+      it("update LimitDepositModule when has deposit limit should revert", async () => {
+        await vault.connect(governance).setDepositLimit(amount);
+        await expect(vault.connect(governance).setDepositLimitModule(await limitDepositModule.getAddress())).to.be.reverted;
+      });
+      it("update LimitDepositModuleForce when has deposit limit shound success, update depositLimit = maxUint256", async () => {
+        await vault.connect(governance).setDepositLimit(amount);
+        let preDepositLimit = (await vault.vaultData()).depositLimit;
+        expect(preDepositLimit).eq(amount);
+        await expect(vault.connect(governance).setDepositLimitModuleForce(await limitDepositModule.getAddress()))
+          .to.be.emit(vault, "UpdateDepositLimitModule")
+          .withArgs(await limitDepositModule.getAddress());
+        let postLimitDepositModule = (await vault.vaultData()).depositLimitModule;
+        expect(postLimitDepositModule).to.be.equal(await limitDepositModule.getAddress());
+        let postDepositLimit = (await vault.vaultData()).depositLimit;
+        expect(postDepositLimit).to.be.equal(ethers.MaxUint256);
+      });
+      it("update LimitDepositModule without permission should revert", async () => {
+        await expect(vault.connect(alice).setDepositLimitModule(await limitDepositModule.getAddress())).to.be.reverted;
+      });
+
+      describe("with LimitDepositModule", async () => {
+        let limitAmount = parseUnits("10", 6);
+        beforeEach(async () => {
+          await vault.connect(governance).setDepositLimitModule(await limitDepositModule.getAddress());
+          await limitDepositModule.connect(governance).setLimitEachUser(limitAmount);
+        });
+        it("maxDeposit", async () => {
+          let maxDeposit = await vault.maxDeposit(alice.address);
+          expect(maxDeposit).to.be.equal(0);
+          let maxBobDeposit = await vault.maxDeposit(bob.address);
+          expect(maxBobDeposit).to.be.equal(limitAmount);
+        });
+        it("maxMint", async () => {
+          let maxDeposit = await vault.maxMint(alice.address);
+          expect(maxDeposit).to.be.equal(0);
+          let maxBobDeposit = await vault.maxMint(bob.address);
+          expect(maxBobDeposit).to.be.equal(limitAmount);
+        });
+      });
+    });
+
+    describe("LimitWithdrawModule", async () => {
+      let limitWithdrawModule: WithdrawLimitModule;
+      beforeEach(async () => {
+        limitWithdrawModule = WithdrawLimitModule__factory.connect((await get("WithdrawLimitModule")).address, governance);
+      });
+
+      it(" update LimitWithdrawModule with permission should success", async () => {
+        await expect(vault.connect(governance).setWithdrawLimitModule(await limitWithdrawModule.getAddress()))
+          .to.be.emit(vault, "UpdateWithdrawLimitModule")
+          .withArgs(await limitWithdrawModule.getAddress());
+        let postLimitWithdrawModule = (await vault.vaultData()).withdrawLimitModule;
+        expect(postLimitWithdrawModule).to.be.equal(await limitWithdrawModule.getAddress());
+      });
+
+      it(" update LimitWithdrawModule without permission should revert", async () => {
+        await expect(vault.connect(alice).setWithdrawLimitModule(await limitWithdrawModule.getAddress())).to.be.reverted;
+      });
+
+      describe("with LimitWithdrawModule", async () => {
+        let limitAmount = parseUnits("100", 6);
+        beforeEach(async () => {
+          await vault.connect(governance).setWithdrawLimitModule(await limitWithdrawModule.getAddress());
+          await limitWithdrawModule.connect(governance).setLimitEachUser(limitAmount);
+          await addStrategy(vault, strategy, governance);
+          await mintAndDeposit(vault, usdc, amount, alice);
+          await updateMaxDebt(vault, strategy, amount * 2n, governance);
+          await updateDebt(vault, strategy, amount, governance);
+        });
+        it("maxWithdraw", async () => {
+          let maxAliceWithdraw = await vault["maxWithdraw(address,uint256,address[])"](alice.address, 0, [await strategy.getAddress()]);
+          expect(maxAliceWithdraw).to.be.equal(limitAmount);
+        });
+        it("withdraw bigger than limit should revert", async () => {
+          await expect(vault.connect(alice).withdraw(limitAmount + 1n, alice.address, alice.address)).to.be.revertedWith("Exceed withdraw limit");
+        });
+        it("withdraw smaller than limit should success", async () => {
+          await vault.connect(alice).withdraw(limitAmount - 1n, alice.address, alice.address);
+        });
+      });
+    });
+  });
 });

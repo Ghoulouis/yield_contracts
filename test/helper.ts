@@ -1,5 +1,5 @@
 import { HardhatEthersSigner } from "@nomicfoundation/hardhat-ethers/signers";
-import { Accountant, ERC20Mintable, MockStrategy, Vault } from "../typechain-types";
+import { Accountant, DepositLimitModule__factory, ERC20Mintable, MockStrategy, Vault } from "../typechain-types";
 import { ethers as ethersv6 } from "ethers";
 import hre from "hardhat";
 
@@ -23,6 +23,8 @@ export async function setDepositLimit(vault: Vault, amount: bigint = ethersv6.Ma
 export async function setDepositLimitModule(vault: Vault, signer: HardhatEthersSigner | ethersv6.Wallet) {
   let module = await get("DepositLimitModule");
   let tx = await vault.connect(signer).setDepositLimitModule(module.address);
+  let limitModule = DepositLimitModule__factory.connect(module.address, signer);
+  await limitModule.setLimitEachUser(10_000_000n);
   await tx.wait();
 }
 

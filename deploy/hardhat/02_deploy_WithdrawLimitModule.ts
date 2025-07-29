@@ -8,13 +8,13 @@ const deploy: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
 
   let vault = await get("Vault");
 
-  await deploy("DepositLimitModule", {
-    contract: "DepositLimitModule",
+  await deploy("WithdrawLimitModule", {
+    contract: "WithdrawLimitModule",
     from: deployer,
     args: [vault.address, deployer],
     log: true,
     autoMine: true,
   });
 };
-deploy.tags = ["deposit-limit-module"];
+deploy.tags = ["withdraw-limit-module"];
 export default deploy;

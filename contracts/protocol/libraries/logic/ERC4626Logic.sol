@@ -11,7 +11,7 @@ import {DataTypes} from "../types/DataTypes.sol";
 import {Constants} from "../Constants.sol";
 import {ERC20Logic} from "./ERC20Logic.sol";
 import {UnrealisedLossesLogic} from "./internal/UnrealisedLossesLogic.sol";
-import "hardhat/console.sol";
+import {IWithdrawLimitModule} from "../../../interfaces/IWithdrawLimitModule.sol";
 
 library ERC4626Logic {
     using Math for uint256;
@@ -81,6 +81,15 @@ library ERC4626Logic {
             vault.balanceOf(owner),
             Math.Rounding.Floor
         );
+
+        if (vault.withdrawLimitModule != address(0)) {
+            return
+                Math.min(
+                    IWithdrawLimitModule(vault.withdrawLimitModule)
+                        .availableWithdrawLimit(owner, maxLoss, _strategies),
+                    maxAssets
+                );
+        }
 
         if (maxAssets <= vault.totalIdle) return maxAssets;
         uint256 have = vault.totalIdle;

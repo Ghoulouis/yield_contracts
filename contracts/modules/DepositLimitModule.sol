@@ -5,10 +5,23 @@ import "../interfaces/IDepositLimitModule.sol";
 import "../interfaces/IVault.sol";
 
 contract DepositLimitModule is IDepositLimitModule {
+    address public governance;
     address public vault;
+    uint256 public limitDeposit;
 
-    constructor(address _vault) {
+    modifier onlyGovernance() {
+        require(msg.sender == governance, "only governance");
+        _;
+    }
+
+    constructor(address _vault, address _governance) {
         vault = _vault;
+        limitDeposit = type(uint256).max;
+        governance = _governance;
+    }
+
+    function setLimitEachUser(uint256 _limitDeposit) external onlyGovernance {
+        limitDeposit = _limitDeposit;
     }
 
     function availableDepositLimit(
@@ -17,7 +30,6 @@ contract DepositLimitModule is IDepositLimitModule {
         uint256 balance = IVault(vault).convertToAssets(
             IVault(vault).balanceOf(receiver)
         );
-        uint256 maxDeposit = 10_000_000;
-        return maxDeposit - balance;
+        return limitDeposit > balance ? limitDeposit - balance : 0;
     }
 }

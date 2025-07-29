@@ -6,6 +6,8 @@ _A solidity forked from [Yearn V3](https://github.com/yearn/yearn-vaults-v3/blob
 
   - [Reward Mechanism](#reward-mechanism)
   - [Fee Mechanism](#fee-mechanism)
+  - [Limit Mechanism](#limit-mechanism)
+  - [Unrealised Losses mechanism](#unrealised-losses-mechanism)
 
 - [Function](#function)
   - [Deposit](#deposit)
@@ -43,6 +45,18 @@ Khi một strategy được báo cáo, `Accountant` sẽ tính `performanceFee` 
 - `PerformanceFee`: Fee thu dựa trên lợi nhuận (yêu cầu business 10%), fee này sẽ được chuyển đổi thành lượng liquidity và mint chúng dưới dạng thanh khoản cho `Accountant`
 
 - `refund`: (Forked yearn v3) giá trị trả lại mỗi khi 1 strategy được báo cáo (có thể sử dụng để làm reward boost apy hoặc bù lỗ)
+
+### Limit Mechanism
+
+Vault có các cơ chế giới hạn số dư của người dùng bằng cách đặt các giới hạn tại hàm `deposit` và `withdraw` thông qua 2 cơ chế chính là `depositLimit` của Vault hoặc nâng cao hơn `depositLimitModule` và `withdrawLimitModule`
+
+- `DepositLimit`: Giới hạn tvl của Vault, cập nhật thông qua hàm `setLimitDeposit`
+- `depositLimitModule`: Contract kiểm tra nâng cao với input thêm địa chỉ user, có thể dùng đề giới hạn tài sản của riêng từng user
+- `withdrawLimitModule`: Tương tự với depositLimitModue, thêm điều kiện kiểm tra nâng cao khi withdraw
+
+### Unrealised Losses Mechanism
+
+UnrealisedLosses là cơ chế tính t"ổn thất tạm thời (chưa được báo cáo), là phần quan trọng để bảo vệ người rút tiền sau không phải "ôm lỗ" cho người rút trước.
 
 # Function
 

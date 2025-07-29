@@ -160,6 +160,14 @@ library ConfiguratorLogic {
         emit IVault.UpdateDepositLimitModule(newDepositLimitModule);
     }
 
+    function ExecuteSetWithdrawLimitModule(
+        DataTypes.VaultData storage vault,
+        address newWithdrawLimitModule
+    ) external {
+        vault.withdrawLimitModule = newWithdrawLimitModule;
+        emit IVault.UpdateWithdrawLimitModule(newWithdrawLimitModule);
+    }
+
     function ExecuteSetAccountant(
         DataTypes.VaultData storage vault,
         address newAccountant

@@ -184,7 +184,7 @@ contract Vault is
         address owner,
         uint256 maxLoss,
         address[] memory _strategies
-    ) public view returns (uint256) {
+    ) public view override returns (uint256) {
         return ERC4626Logic.maxWithdraw(vaultData, owner, maxLoss, _strategies);
     }
 
@@ -431,6 +431,15 @@ contract Vault is
             vaultData,
             newDepositLimitModule,
             true
+        );
+    }
+
+    function setWithdrawLimitModule(
+        address newWithdrawLimitModule
+    ) external onlyRole(Constants.ROLE_WITHDRAW_LIMIT_MANAGER) {
+        ConfiguratorLogic.ExecuteSetWithdrawLimitModule(
+            vaultData,
+            newWithdrawLimitModule
         );
     }
 

@@ -77,4 +77,9 @@ interface IVault is IERC4626 {
     ) external returns (uint256);
     function maxDeposit(address receiver) external view returns (uint256);
     function maxWithdraw(address owner) external view returns (uint256);
+    function maxWithdraw(
+        address owner,
+        uint256 maxLoss,
+        address[] memory _strategies
+    ) external view returns (uint256);
 }
