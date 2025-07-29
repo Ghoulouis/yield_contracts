@@ -235,7 +235,7 @@ library DebtLogic {
                 ) == 0,
                 "Unrealised losses"
             );
-            console.log(" assetsToWithdraw ", assetsToWithdraw);
+
             if (assetsToWithdraw == 0) return currentDebt;
 
             uint256 preBalance = IERC20(vault.asset()).balanceOf(address(this));

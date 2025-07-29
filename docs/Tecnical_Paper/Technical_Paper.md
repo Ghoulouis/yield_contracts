@@ -8,6 +8,7 @@ _A solidity forked from [Yearn V3](https://github.com/yearn/yearn-vaults-v3/blob
   - [Fee Mechanism](#fee-mechanism)
   - [Limit Mechanism](#limit-mechanism)
   - [Unrealised Losses mechanism](#unrealised-losses-mechanism)
+  - [Buy debt mechanism](#buy-debt-mechanism)
 
 - [Function](#function)
   - [Deposit](#deposit)
@@ -56,7 +57,22 @@ Vault có các cơ chế giới hạn số dư của người dùng bằng cách
 
 ### Unrealised Losses Mechanism
 
-UnrealisedLosses là cơ chế tính t"ổn thất tạm thời (chưa được báo cáo), là phần quan trọng để bảo vệ người rút tiền sau không phải "ôm lỗ" cho người rút trước.
+UnrealisedLosses là cơ chế tính tổn thất tạm thời (lỗ chưa được báo cáo), là phần quan trọng để bảo vệ người rút tiền sau không phải "ôm lỗ" cho người rút trước.
+
+### Buy Debt Mechanism
+
+Buy Debt là cơ chế cho phép những người có thẩm quyền có thể mua lại nợ của Vault
+
+- Chỉ những người có ROLE `ROLE_DEBT_PURCHASER` có thể mua nợ
+- ROLE được cấp bởi GORVERNANCE
+
+### Minimum Total Idle
+
+Minimum total Idle là chức năng giữ 1 lượng tiền tối thiểu trong vault để làm thanh khoản, chúng có chức năng
+
+- Thanh khoản rút tiền nhành
+- Tránh force-withdraw từ strategy gây tổn thất
+- Được đặt và cập nhật bởi `ROLE_MINIMUM_IDLE_MANAGER`
 
 # Function
 

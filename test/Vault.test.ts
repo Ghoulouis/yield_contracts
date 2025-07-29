@@ -382,4 +382,62 @@ describe("Vault", () => {
       });
     });
   });
+
+  describe("Buy Debt", () => {
+    let limitDepositModule: DepositLimitModule;
+    let debtAmount = amount / 3n;
+    beforeEach(async () => {
+      limitDepositModule = DepositLimitModule__factory.connect((await get("DepositLimitModule")).address, governance);
+      await addStrategy(vault, strategy, governance);
+      await mintAndDeposit(vault, usdc, amount, alice);
+      await updateMaxDebt(vault, strategy, amount * 2n, governance);
+      await updateDebt(vault, strategy, amount, governance);
+
+      await usdc.connect(governance).mint(governance.address, debtAmount);
+      await usdc.connect(governance).approve(await vault.getAddress(), debtAmount);
+    });
+
+    it("can buy debt with permission should success", async () => {
+      let preDebt = (await vault.strategies(await strategy.getAddress())).currentDebt;
+      await expect(vault.connect(governance).buyDebt(await strategy.getAddress(), debtAmount))
+        .to.be.emit(vault, "DebtUpdated")
+        .withArgs(await strategy.getAddress(), preDebt, preDebt - debtAmount)
+        .to.be.emit(vault, "DebtPurchased")
+        .withArgs(await strategy.getAddress(), debtAmount);
+      let postDebt = await vault.strategies(await strategy.getAddress());
+      expect(postDebt.currentDebt).to.be.equal(preDebt - debtAmount);
+    });
+
+    it("buy debt without permission should revert", async () => {
+      await usdc.connect(governance).mint(alice.address, debtAmount);
+      await usdc.connect(alice).approve(await vault.getAddress(), debtAmount);
+      await expect(vault.connect(alice).buyDebt(await strategy.getAddress(), debtAmount)).to.be.reverted;
+    });
+  });
+
+  describe("Minimum Total Idle", async () => {
+    let mimimum = amount / 10n;
+    beforeEach(async () => {
+      await addStrategy(vault, strategy, governance);
+      await mintAndDeposit(vault, usdc, amount, alice);
+      await updateMaxDebt(vault, strategy, amount * 10n, governance);
+      await updateDebt(vault, strategy, amount, governance);
+    });
+    it(" set Minimum Total Idle with permission should success", async () => {
+      await expect(vault.connect(governance).setMinimumTotalIdle(mimimum)).to.be.emit(vault, "UpdateMinimumTotalIdle").withArgs(mimimum);
+      let postMinimumTotalIdle = (await vault.vaultData()).minimumTotalIdle;
+      expect(postMinimumTotalIdle).to.be.equal(mimimum);
+    });
+    it(" set Minimum Total Idle without permission should revert", async () => {
+      await expect(vault.connect(alice).setMinimumTotalIdle(mimimum)).to.be.reverted;
+    });
+    it(" should withdraw mimimumTotalIdle - totalIdle when updateDebt ", async () => {
+      let preTotalIdle = await vault.totalIdle();
+      await vault.connect(governance).setMinimumTotalIdle(mimimum);
+      await vault.setAutoAllocate(true);
+      await mintAndDeposit(vault, usdc, amount, alice);
+      let posTotalIdle = await vault.totalIdle();
+      expect(posTotalIdle).eq(mimimum);
+    });
+  });
 });
