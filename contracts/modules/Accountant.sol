@@ -1,11 +1,10 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import "./interfaces/IAccountant.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import "../interfaces/IAccountant.sol";
+import {IVault} from "../interfaces/IVault.sol";
 
-import {IVault} from "./interfaces/IVault.sol";
-import "hardhat/console.sol";
 contract Accountant is IAccountant {
     struct Fee {
         uint256 managementFee;

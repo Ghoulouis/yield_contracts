@@ -23,10 +23,9 @@ import {WithdrawLogic} from "./libraries/logic/WithdrawLogic.sol";
 import {UnlockSharesLogic} from "./libraries/logic/UnlockSharesLogic.sol";
 import {DebtLogic} from "./libraries/logic/DebtLogic.sol";
 import {ConfiguratorLogic} from "./libraries/logic/ConfiguratorLogic.sol";
+import {ManagementFeeLogic} from "./libraries/logic/internal/ManagementFeeLogic.sol";
 import {IVault} from "../interfaces/IVault.sol";
 
-import {ManagementFeeLogic} from "./libraries/logic/internal/ManagementFeeLogic.sol";
-import "hardhat/console.sol";
 contract Vault is
     IVault,
     VaultStorage,

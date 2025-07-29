@@ -15,7 +15,6 @@ import {IStrategy} from "../../../interfaces/IStrategy.sol";
 import {IVault} from "../../../interfaces/IVault.sol";
 
 import {ManagementFeeLogic} from "./internal/ManagementFeeLogic.sol";
-import "hardhat/console.sol";
 
 library WithdrawLogic {
     using Math for uint256;

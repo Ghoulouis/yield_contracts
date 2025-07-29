@@ -26,7 +26,7 @@ library DataTypes {
         uint256 fullProfitUnlockDate;
         uint256 profitUnlockingRate;
         uint256 lastProfitUpdate;
-        //
+        // modules
         address accountant;
         address depositLimitModule;
         address withdrawLimitModule;

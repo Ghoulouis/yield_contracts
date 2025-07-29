@@ -11,7 +11,6 @@ import {ERC4626Logic} from "../ERC4626Logic.sol";
 
 import {IVault} from "../../../../interfaces/IVault.sol";
 import {IStrategy} from "../../../../interfaces/IStrategy.sol";
-import "hardhat/console.sol";
 
 library WithdrawFromStrategyLogic {
     using SafeERC20 for IERC20;

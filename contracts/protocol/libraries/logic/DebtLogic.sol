@@ -16,7 +16,6 @@ import {IVault} from "../../../interfaces/IVault.sol";
 import {IStrategy} from "../../../interfaces/IStrategy.sol";
 import {IAccountant} from "../../../interfaces/IAccountant.sol";
 
-import "hardhat/console.sol";
 library DebtLogic {
     using ERC20Logic for DataTypes.VaultData;
     using ERC4626Logic for DataTypes.VaultData;

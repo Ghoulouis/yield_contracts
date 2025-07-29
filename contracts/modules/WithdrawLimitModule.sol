@@ -4,7 +4,6 @@ pragma solidity ^0.8.24;
 import "../interfaces/IWithdrawLimitModule.sol";
 import "../interfaces/IVault.sol";
 
-import "hardhat/console.sol";
 contract WithdrawLimitModule is IWithdrawLimitModule {
     address public governance;
     address public vault;
@@ -30,7 +29,6 @@ contract WithdrawLimitModule is IWithdrawLimitModule {
         uint256,
         address[] calldata
     ) external view returns (uint256) {
-        // to do
         return limitWithdraw;
     }
 }

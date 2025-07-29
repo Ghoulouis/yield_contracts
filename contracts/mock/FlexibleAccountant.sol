@@ -5,7 +5,7 @@ import "../interfaces/IAccountant.sol";
 import "@openzeppelin/contracts/proxy/utils/Initializable.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/utils/math/Math.sol";
-import "hardhat/console.sol";
+
 contract FlexibleAccountant is IAccountant, Initializable {
     using Math for uint256;
     address public governance;

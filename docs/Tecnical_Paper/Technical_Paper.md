@@ -4,11 +4,13 @@ _A solidity forked from [Yearn V3](https://github.com/yearn/yearn-vaults-v3/blob
 
 - [Mechanism](#mechanism)
 
+  - [Strategies Mechanism](#strategies-mechanism)
+  - [Auto Allocate Mechanism](#auto-allocate-mechanism)
   - [Reward Mechanism](#reward-mechanism)
   - [Fee Mechanism](#fee-mechanism)
   - [Limit Mechanism](#limit-mechanism)
-  - [Unrealised Losses mechanism](#unrealised-losses-mechanism)
-  - [Buy debt mechanism](#buy-debt-mechanism)
+  - [Unrealised Losses Mechanism](#unrealised-losses-mechanism)
+  - [Buy Debt Mechanism](#buy-debt-mechanism)
 
 - [Function](#function)
   - [Deposit](#deposit)
@@ -16,6 +18,15 @@ _A solidity forked from [Yearn V3](https://github.com/yearn/yearn-vaults-v3/blob
   - [Report](#report)
 
 # mechanism
+
+### Strategies Mechanism
+
+- Mô tả chức năng strategies: thêm, xoá strategy, quản lí nợ, cập nhật max nợ
+- Giải thích chức năng của Queue trong cơ chế này
+
+Cooming soon
+
+### Auto Allocate Mechanism
 
 ### Reward Mechanism
 
@@ -34,7 +45,7 @@ OmniFarming V2 thu 2 loại phí, bao gồm:
 
 **Management Fee**
 
-Mint lượng lp tương ứng giữa 2 lần deposit/withdraw dựa trên số `totalSupply()`,
+Mint lượng lp tương ứng giữa 2 lần deposit/withdraw dựa trên **tổng số thanh khoản của user**,
 Override các hàm `PreviewMint` `PreviewWithdraw` `PreviewDeposit` `PreviewRedeem` theo công thức mới có tính trước management Fee vào totalSupply
 
 **Performance Fee**

@@ -6,7 +6,7 @@ import {DataTypes} from "../../types/DataTypes.sol";
 import {Constants} from "../../Constants.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import {IStrategy} from "../../../../interfaces/IStrategy.sol";
-import "hardhat/console.sol";
+
 import {ERC20Logic} from "../ERC20Logic.sol";
 import {IVault} from "../../../../interfaces/IVault.sol";
 
