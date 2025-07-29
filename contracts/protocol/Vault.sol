@@ -371,29 +371,29 @@ contract Vault is
     function addStrategy(
         address strategy,
         bool addToQueue
-    ) external nonReentrant {
+    ) external nonReentrant onlyRole(Constants.ROLE_QUEUE_MANAGER) {
         ConfiguratorLogic.ExecuteAddStrategy(vaultData, strategy, addToQueue);
     }
 
-    function revokeStrategy(address strategy) external {
+    function revokeStrategy(address strategy) external onlyRole(Constants.ROLE_QUEUE_MANAGER)  {
         ConfiguratorLogic.ExecuteRevokeStrategy(vaultData, strategy, false);
     }
 
-    function forceRevokeStrategy(address strategy) external {
+    function forceRevokeStrategy(address strategy) external onlyRole(Constants.ROLE_QUEUE_MANAGER)  {
         ConfiguratorLogic.ExecuteRevokeStrategy(vaultData, strategy, true);
     }
 
     function setDefaultQueue(
         address[] calldata newDefaultQueue
-    ) external nonReentrant {
+    ) external nonReentrant onlyRole(Constants.ROLE_QUEUE_MANAGER)  {
         ConfiguratorLogic.ExecuteSetDefaultQueue(vaultData, newDefaultQueue);
     }
 
-    function setUseDefaultQueue(bool useDefaultQueue) external {
+    function setUseDefaultQueue(bool useDefaultQueue) external onlyRole(Constants.ROLE_QUEUE_MANAGER)  {
         ConfiguratorLogic.ExecuteSetUseDefaultQueue(vaultData, useDefaultQueue);
     }
 
-    function setAutoAllocate(bool autoAllocate) public {
+    function setAutoAllocate(bool autoAllocate) public onlyRole(Constants.ROLE_QUEUE_MANAGER) {
         ConfiguratorLogic.ExecuteSetAutoAllocate(vaultData, autoAllocate);
     }
 

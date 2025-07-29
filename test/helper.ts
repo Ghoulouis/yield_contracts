@@ -36,8 +36,9 @@ export async function addDebtToStrategy(vault: Vault, strategy: MockStrategy, am
 }
 
 export async function addStrategy(vault: Vault, strategy: MockStrategy, signer: HardhatEthersSigner | ethersv6.Wallet) {
-  let tx = await vault.connect(signer).addStrategy(await strategy.getAddress(), true);
-  await tx.wait();
+  // let tx = await vault.connect(signer).addStrategy(await strategy.getAddress(), true);
+  // await tx.wait();
+  return vault.connect(signer).addStrategy(await strategy.getAddress(), true);
 }
 
 export async function updateMaxDebt(vault: Vault, strategy: MockStrategy, amount: bigint = 10n ** 6n, signer: HardhatEthersSigner | ethersv6.Wallet) {
