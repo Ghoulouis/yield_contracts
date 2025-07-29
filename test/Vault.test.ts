@@ -158,7 +158,7 @@ describe("Vault", () => {
         ).to.be.revertedWith("Strategy already active");
       });
     });
-    describe("Default Queue - Max Length", () => {
+    describe("Default Queue - Max Length", () => { /* max default queue length = 20 */
       let strategies: MockStrategy[];
       let snapshot: SnapshotRestorer;
 
@@ -169,7 +169,7 @@ describe("Vault", () => {
         vault = Vault__factory.connect((await get("Vault")).address, governance);
         strategies = [];
         const MockStrategyFactory = await hre.ethers.getContractFactory("MockStrategy");
-        for (let i = 0; i < 11; i++) {
+        for (let i = 0; i <= 21; i++) {
           const strategy = await MockStrategyFactory.deploy();
           await strategy.connect(governance).initialize(
             await vault.getAddress(),
@@ -187,13 +187,17 @@ describe("Vault", () => {
         await snapshot.restore();
       });
 
-      it("add 11 strategies - queue limited to 10", async () => {
-        for (let i = 0; i < 10; i++) {
+      it("add 21 strategies - queue limited to 20", async () => {
+        for (let i = 0; i < 20; i++) {
           await addStrategy(vault, strategies[i], governance);
         }
-
-        await addStrategy(vault, strategies[10], governance);
-        expect((await vault.strategies(strategies[10].getAddress())).activation).to.not.equal(0);
+        await addStrategy(vault, strategies[21], governance);
+        const queue = await vault.getDefaultQueue();
+        expect(queue.length).to.equal(20);
+        const addr21 = await strategies[21].getAddress();
+        expect(queue).to.not.include(addr21);
+        const strategyInfo = await vault.strategies(addr21);
+        expect(strategyInfo.activation).to.be.gt(0);
       });
     });
     describe("revokeStrategy", () => {

@@ -471,7 +471,9 @@ contract Vault is
     }
 
     // VIEW FUNCTIONS
-
+    function getDefaultQueue() external view returns (address[] memory) {
+        return vaultData.defaultQueue;  
+    }
     function strategies(
         address strategy
     ) public view returns (DataTypes.StrategyData memory) {
