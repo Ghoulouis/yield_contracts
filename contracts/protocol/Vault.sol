@@ -56,6 +56,7 @@ contract Vault is
         InitializeLogic.ExecuteInitialize(vaultData, _profitMaxUnlockTime);
 
         _grantRole(Constants.ROLE_GOVERNANCE_MANAGER, governance);
+        _grantRole(Constants.ROLE_ADD_STRATEGY_MANAGER, governance);
 
         _setRoleAdmin(
             Constants.ROLE_GOVERNANCE_MANAGER,
@@ -371,29 +372,29 @@ contract Vault is
     function addStrategy(
         address strategy,
         bool addToQueue
-    ) external nonReentrant {
+    ) external nonReentrant onlyRole(Constants.ROLE_ADD_STRATEGY_MANAGER) {
         ConfiguratorLogic.ExecuteAddStrategy(vaultData, strategy, addToQueue);
     }
 
-    function revokeStrategy(address strategy) external {
+    function revokeStrategy(address strategy) external onlyRole(Constants.ROLE_REVOKE_STRATEGY_MANAGER)  {
         ConfiguratorLogic.ExecuteRevokeStrategy(vaultData, strategy, false);
     }
 
-    function forceRevokeStrategy(address strategy) external {
+    function forceRevokeStrategy(address strategy) external onlyRole(Constants.ROLE_REVOKE_STRATEGY_MANAGER)  {
         ConfiguratorLogic.ExecuteRevokeStrategy(vaultData, strategy, true);
     }
 
     function setDefaultQueue(
         address[] calldata newDefaultQueue
-    ) external nonReentrant {
+    ) external nonReentrant onlyRole(Constants.ROLE_QUEUE_MANAGER)  {
         ConfiguratorLogic.ExecuteSetDefaultQueue(vaultData, newDefaultQueue);
     }
 
-    function setUseDefaultQueue(bool useDefaultQueue) external {
+    function setUseDefaultQueue(bool useDefaultQueue) external onlyRole(Constants.ROLE_QUEUE_MANAGER)  {
         ConfiguratorLogic.ExecuteSetUseDefaultQueue(vaultData, useDefaultQueue);
     }
 
-    function setAutoAllocate(bool autoAllocate) public {
+    function setAutoAllocate(bool autoAllocate) public onlyRole(Constants.ROLE_DEBT_MANAGER) {
         ConfiguratorLogic.ExecuteSetAutoAllocate(vaultData, autoAllocate);
     }
 
@@ -470,7 +471,9 @@ contract Vault is
     }
 
     // VIEW FUNCTIONS
-
+    function getDefaultQueue() external view returns (address[] memory) {
+        return vaultData.defaultQueue;  
+    }
     function strategies(
         address strategy
     ) public view returns (DataTypes.StrategyData memory) {

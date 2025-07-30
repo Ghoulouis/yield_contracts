@@ -16,7 +16,8 @@ import {
 } from "../typechain-types";
 import { ethers, getNamedAccounts, network } from "hardhat";
 import hre from "hardhat";
-import { ethers as ethersv6, MaxUint256, parseUnits } from "ethers";
+import { ethers as ethersv6, MaxUint256, parseUnits, } from "ethers";
+import { BigNumber } from "ethers";
 import {
   addDebtToStrategy,
   addLossToStrategy,
@@ -72,6 +73,325 @@ describe("Vault", () => {
 
   let amount = parseUnits("1000", 6);
 
+  describe("****configurator test: queue and strategies (All behavior)", () => {
+    let strategy1: MockStrategy;
+    let strategy2: MockStrategy;
+    let strategy3: MockStrategy;
+    let amount = parseUnits("1000", 6);
+    let maxDebt = parseUnits("10000000", 6);
+    let snapshot: SnapshotRestorer;
+
+    beforeEach(async () => {
+      snapshot = await takeSnapshot();
+      await mintAndDeposit(vault, usdc, amount, alice);
+      const MockStrategyFactory = await hre.ethers.getContractFactory("MockStrategy");
+      strategy1 = await MockStrategyFactory.deploy();
+      strategy2 = await MockStrategyFactory.deploy();
+      strategy3 = await MockStrategyFactory.deploy();
+      await strategy1.connect(governance).initialize(
+        await vault.getAddress(),
+        governance.address,
+        governance.address,
+        await usdc.getAddress(),
+        "Strategy1",
+        "STR1"
+      );
+      await strategy2.connect(governance).initialize(
+        await vault.getAddress(),
+        governance.address,
+        governance.address,
+        await usdc.getAddress(),
+        "Strategy2",
+        "STR2"
+      );
+      await strategy3.connect(governance).initialize(
+        await vault.getAddress(),
+        governance.address,
+        governance.address,
+        await usdc.getAddress(),
+        "Strategy3",
+        "STR3"
+      );
+    });
+
+    afterEach(async () => {
+      await snapshot.restore();
+    });
+    describe("add strategy", () => {
+      it("add strategies - should add 3 strategies to vault and queue", async () => {
+        expect((await vault.strategies(strategy1.getAddress())).activation).to.equal(0);
+        expect((await vault.strategies(strategy2.getAddress())).activation).to.equal(0);
+        expect((await vault.strategies(strategy3.getAddress())).activation).to.equal(0);
+
+        await addStrategy(vault, strategy1, governance);
+        await addStrategy(vault, strategy2, governance);
+        await addStrategy(vault, strategy3, governance);
+        expect((await vault.strategies(strategy1.getAddress())).activation).to.not.equal(0);
+        expect((await vault.strategies(strategy2.getAddress())).activation).to.not.equal(0);
+        expect((await vault.strategies(strategy3.getAddress())).activation).to.not.equal(0);
+      });
+      it("add strategy - should revert if not QUEUE_MANAGER", async () => {
+        await expect(
+          vault.connect(alice).addStrategy(strategy1.getAddress(), true)
+        ).to.be.reverted;
+      });
+      it("add strategy - with valid strategy", async () => {
+        const blockBefore = await provider.getBlock("latest");
+        const timestampBefore = blockBefore!.timestamp;
+        await addStrategy(vault, strategy1, governance);
+        const strategyParams = await vault.strategies(strategy1.getAddress());
+        expect(strategyParams.activation).to.be.closeTo(timestampBefore + 1, 2);
+        expect(strategyParams.currentDebt).to.equal(0);
+        expect(strategyParams.maxDebt).to.equal(0);
+        expect(strategyParams.lastReport).to.be.closeTo(timestampBefore + 1, 2);
+      });
+
+      it("add strategy - with zero address - fails with error", async () => {
+        await expect(
+          vault.connect(governance).addStrategy(ethersv6.ZeroAddress, true)
+        ).to.be.revertedWith("Invalid strategy");
+      });
+      it("add strategy - with already active strategy - fails with error", async () => {
+        await addStrategy(vault, strategy1, governance);
+        await expect(
+          vault.connect(governance).addStrategy(strategy1.getAddress(), true)
+        ).to.be.revertedWith("Strategy already active");
+      });
+    });
+    describe("Default Queue - Max Length", () => { /* max default queue length = 20 */
+      let strategies: MockStrategy[];
+      let snapshot: SnapshotRestorer;
+
+      beforeEach(async () => {
+        snapshot = await takeSnapshot();
+        const { deployer } = await getNamedAccounts();
+        governance = await hre.ethers.getSigner(deployer);
+        vault = Vault__factory.connect((await get("Vault")).address, governance);
+        strategies = [];
+        const MockStrategyFactory = await hre.ethers.getContractFactory("MockStrategy");
+        for (let i = 0; i <= 21; i++) {
+          const strategy = await MockStrategyFactory.deploy();
+          await strategy.connect(governance).initialize(
+            await vault.getAddress(),
+            governance.address,
+            governance.address,
+            (await get("USDC")).address,
+            `Strategy${i}`,
+            `STR${i}`
+          );
+          strategies.push(strategy);
+        }
+      });
+
+      afterEach(async () => {
+        await snapshot.restore();
+      });
+
+      it("add 21 strategies - queue limited to 20", async () => {
+        for (let i = 0; i < 20; i++) {
+          await addStrategy(vault, strategies[i], governance);
+        }
+        await addStrategy(vault, strategies[21], governance);
+        const queue = await vault.getDefaultQueue();
+        expect(queue.length).to.equal(20);
+        const addr21 = await strategies[21].getAddress();
+        expect(queue).to.not.include(addr21);
+        const strategyInfo = await vault.strategies(addr21);
+        expect(strategyInfo.activation).to.be.gt(0);
+      });
+    });
+    describe("revokeStrategy", () => {
+      beforeEach(async () => {
+        await addStrategy(vault, strategy1, governance);
+        await addStrategy(vault, strategy2, governance);
+      });
+
+      it("should revoke strategy and remove from queue", async () => {
+        const strategyAddress = await strategy1.getAddress();
+        expect((await vault.strategies(strategyAddress)).activation).to.not.equal(0);
+
+        await vault.connect(governance).revokeStrategy(strategyAddress);
+
+        expect((await vault.strategies(strategyAddress)).activation).to.equal(0);
+
+      });
+
+      it("should revert if strategy is not active", async () => {
+        await expect(
+          vault.connect(governance).revokeStrategy(strategy3.getAddress())
+        ).to.be.revertedWith("Strategy not active");
+      });
+
+      it("should revert if strategy has debt and not forced", async () => {
+        await vault.connect(governance).updateMaxDebtForStrategy(strategy1.getAddress(), amount);
+        await vault.connect(governance).updateDebt(strategy1.getAddress(), amount, 0);
+        await expect(
+          vault.connect(governance).revokeStrategy(strategy1.getAddress())
+        ).to.be.revertedWith("Strategy has debt");
+      });
+
+      it("should revert if not QUEUE_MANAGER", async () => {
+        await expect(
+          vault.connect(alice).revokeStrategy(strategy1.getAddress())
+        ).to.be.reverted;
+      });
+    });
+    describe("forceRevokeStrategy", () => {
+      beforeEach(async () => {
+        await addStrategy(vault, strategy1, governance);
+        await updateMaxDebt(vault, strategy1, amount, governance);
+        await updateDebt(vault, strategy1, amount, governance);
+      });
+
+      it("should force revoke strategy with debt and update totalDebt", async () => {
+        const strategyAddress = await strategy1.getAddress();
+        const initialTotalDebt = await vault.totalDebt();
+        const strategyParams = await vault.strategies(strategyAddress);
+        expect(strategyParams.currentDebt).to.equal(amount);
+        expect(initialTotalDebt).to.equal(amount);
+        const tx = await vault.connect(governance).forceRevokeStrategy(strategyAddress);
+        const finalParams = await vault.strategies(strategyAddress);
+        expect(finalParams.activation).to.equal(0);
+        expect(finalParams.currentDebt).to.equal(0);
+        expect(finalParams.maxDebt).to.equal(0);
+        expect(finalParams.lastReport).to.equal(0);
+        expect(await vault.totalDebt()).to.equal(0);
+        await expect(vault.connect(governance).setDefaultQueue([strategyAddress])).to.be.revertedWith("Inactive strategy");
+      });
+
+      it("should revert if strategy is not active", async () => {
+        await expect(
+          vault.connect(governance).forceRevokeStrategy(strategy3.getAddress())
+        ).to.be.revertedWith("Strategy not active");
+      });
+
+      it("should revert if not QUEUE_MANAGER", async () => {
+        await expect(
+          vault.connect(alice).forceRevokeStrategy(strategy1.getAddress())
+        ).to.be.reverted;
+      });
+    });
+
+    describe("setDefaultQueue", () => {
+      beforeEach(async () => {
+        await addStrategy(vault, strategy1, governance);
+        await addStrategy(vault, strategy2, governance);
+        await addStrategy(vault, strategy3, governance);
+      });
+
+      it("should set new default queue with active strategies", async () => {
+        const newQueue = [await strategy2.getAddress(), await strategy1.getAddress()];
+        const tx = await vault.connect(governance).setDefaultQueue(newQueue);
+        await vault.connect(governance).revokeStrategy(await strategy3.getAddress());
+        await expect(vault.connect(governance).setDefaultQueue([await strategy3.getAddress()])).to.be.revertedWith("Inactive strategy");
+      });
+
+      it("should revert if queue length exceeds MAX_QUEUE", async () => {
+        const tooLongQueue = new Array(21).fill(await strategy1.getAddress());
+        await expect(
+          vault.connect(governance).setDefaultQueue(tooLongQueue)
+        ).to.be.revertedWith("Queue too long");
+      });
+
+      it("should revert if queue contains inactive strategy", async () => {
+        await vault.connect(governance).revokeStrategy(strategy3.getAddress());
+        const invalidQueue = [await strategy1.getAddress(), await strategy3.getAddress()];
+        await expect(
+          vault.connect(governance).setDefaultQueue(invalidQueue)
+        ).to.be.revertedWith("Inactive strategy");
+      });
+
+      it("should revert if not QUEUE_MANAGER", async () => {
+        const newQueue = [await strategy1.getAddress()];
+        await expect(
+          vault.connect(alice).setDefaultQueue(newQueue)
+        ).to.be.reverted;
+      });
+    });
+
+    describe("setUseDefaultQueue", () => {
+      it("should enable useDefaultQueue", async () => {
+        const tx = await vault.connect(governance).setUseDefaultQueue(true);
+        const events = await tx.wait().then((receipt) => receipt!.logs.map(log => vault.interface.parseLog(log)));
+        expect(events.some(event => event?.name === "UpdateUseDefaultQueue" && event.args.useDefaultQueue === true)).to.be.true;
+      });
+
+      it("should disable useDefaultQueue", async () => {
+        await vault.connect(governance).setUseDefaultQueue(true);
+        const tx = await vault.connect(governance).setUseDefaultQueue(false);
+        const events = await tx.wait().then((receipt) => receipt!.logs.map(log => vault.interface.parseLog(log)));
+        expect(events.some(event => event?.name === "UpdateUseDefaultQueue" && event.args.useDefaultQueue === false)).to.be.true;
+      });
+
+      it("should revert if not QUEUE_MANAGER", async () => {
+        await expect(
+          vault.connect(alice).setUseDefaultQueue(true)
+        ).to.be.reverted;
+      });
+    });
+
+    describe("setAutoAllocate", () => {
+      it("should enable autoAllocate", async () => {
+        const tx = await vault.connect(governance).setAutoAllocate(true);
+        const events = await tx.wait().then((receipt) => receipt!.logs.map(log => vault.interface.parseLog(log)));
+        expect(events.some(event => event?.name === "UpdateAutoAllocate" && event.args.autoAllocate === true)).to.be.true;
+      });
+
+      it("should disable autoAllocate", async () => {
+        await vault.connect(governance).setAutoAllocate(true);
+        const tx = await vault.connect(governance).setAutoAllocate(false);
+        const events = await tx.wait().then((receipt) => receipt!.logs.map(log => vault.interface.parseLog(log)));
+        expect(events.some(event => event?.name === "UpdateAutoAllocate" && event.args.autoAllocate === false)).to.be.true;
+      });
+
+      it("should revert if not QUEUE_MANAGER", async () => {
+        await expect(
+          vault.connect(alice).setAutoAllocate(true)
+        ).to.be.reverted;
+      });
+    });
+    describe("updateDebt with multiple strategies", () => {
+      beforeEach(async () => {
+        await addStrategy(vault, strategy1, governance);
+        await addStrategy(vault, strategy2, governance);
+        await addStrategy(vault, strategy3, governance);
+        await updateMaxDebt(vault, strategy1, maxDebt, governance);
+        await updateMaxDebt(vault, strategy2, maxDebt, governance);
+        await updateMaxDebt(vault, strategy3, maxDebt, governance);
+        await mintAndDeposit(vault, usdc, amount, alice);
+      });
+
+      it("should allocate debt to the first strategy in the queue", async () => {
+        await updateDebt(vault, strategy1, amount, governance);
+
+        const strategy1Debt = (await vault.strategies(strategy1.getAddress())).currentDebt;
+        const strategy2Debt = (await vault.strategies(strategy2.getAddress())).currentDebt;
+        const strategy3Debt = (await vault.strategies(strategy3.getAddress())).currentDebt;
+
+        expect(strategy1Debt).to.equal(amount);
+        expect(strategy2Debt).to.equal(0);
+        expect(strategy3Debt).to.equal(0);
+
+      });
+
+      it("should respect queue order when allocating debt", async () => {
+        const newQueue = [await strategy2.getAddress(), await strategy1.getAddress(), await strategy3.getAddress()];
+        await vault.connect(governance).setDefaultQueue(newQueue);
+        await vault.connect(governance).setUseDefaultQueue(true);
+
+        await updateDebt(vault, strategy2, amount, governance);
+
+        const strategy1Debt = (await vault.strategies(strategy1.getAddress())).currentDebt;
+        const strategy2Debt = (await vault.strategies(strategy2.getAddress())).currentDebt;
+        const strategy3Debt = (await vault.strategies(strategy3.getAddress())).currentDebt;
+
+        expect(strategy2Debt).to.equal(amount);
+        expect(strategy1Debt).to.equal(0);
+        expect(strategy3Debt).to.equal(0);
+
+      });
+    });
+  });
   describe("Update debt", () => {
     let amount = parseUnits("1000", 6);
     let maxDebt = parseUnits("10000000", 6);

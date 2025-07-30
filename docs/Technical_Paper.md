@@ -38,11 +38,26 @@ OmniFarming V2 comprises three main components:
 - Mô tả chức năng strategies: thêm, xoá strategy, quản lí nợ, cập nhật max nợ
 - Giải thích chức năng của Queue trong cơ chế này
 
-Coming soon
+* Yêu cầu phải có role được định nghĩa trước (VD: ROLE_QUEUE_MANAGER, ROLE_ADD_STRATEGY_MANAGER,... ) thì mới có thể thêm, xóa strategy, quản lí nợ, cập nhật max nợ.
+
+1. Thêm strategy: Thêm một strategy vào `default_queue` để vault có thể phân bố tài sản vào đó.
+2. Xóa strategy: Xóa một strategy khỏi `default_queue`, ngăn nó nhận thêm tài sản.
+3. Quản lí nợ: gồm `ExecuteUpdateMaxDebtForStrategy`: Cập nhật max nợ cho strategy, giới hạn lượng tài sản strategy có thể vay.
+
+- Giải thích chức năng của Queue trong cơ chế này:
+- Chức năng Queue trong OmniFarmingV2 khá hay, mình có thể tưởng tượng như nó giống như hàng đợi ưu tiên của các Strategy, khi Vault tự động gửi tài sản vào strategy đầu tiên trong `default_queue` khi người dùng deposit/mint, rất tiện nếu người dùng muốn farm tối ưu lợi nhuận nếu strategy đầu tiên chứa tối đa tài sản (đạt maxDebt) thì sẽ đẩy dần về strategy sau đó (thứ 2), hay tương tự dần dần xuống.
+- Điều này giúp tối ưu hóa lợi nhuận khi farming, đồng thời linh hoạt với các chiến lược khác nhau.
+- Mỗi strategy là 1 vault ERC4626, `QUEUE_MANAGER` có thể sắp xếp, thêm, hoặc xóa strategy trong hàng đợi để điều chỉnh chiến lược đầu tư.
+  TH đặc biệt: Strategy có thể bị inactive thì nó coi như out khỏi `default_queue` cho đến khi được active trở lại.
 
 ### Auto Allocate Mechanism
 
-Coming soon
+- Cơ chế Auto Allocate trong OmniFarmingV2 là cơ chế tự động phân bố tài sản khi deposit/mint. Một cơ chế rất tiện lợi khi vault có thể tự re-balance current_debt về target debt bằng cách gửi hoặc rút tài sản từ strategy(target_debt sẽ phải nhỏ hơn hoặc bằng Strategy's max debt)
+- Khi autoAllocate = true thì vault sẽ tự động phân bố tài sản gửi vào thông qua hàm deposit vào strategy đàu tiên trong hàng dợi miễn là các điều kiện về maxDebt, maxDeposit, miniumTotalIdle được đáp ứng.
+- Trong đó:
+- Tài sản gửi vào strategy sẽ được lấy từ tài sản "idle" của vaut(totalIdle). Đây là số tài sản mà vault đang giữ (thường là token như USDC) trong hợp đồng vault, chưa được phân bổ vào bất kỳ strategy nào.
+- Tài sản được rút từ strategy. Strategy trả lại tài sản cho vault dựa trên số lượng có thể rút (maxRedeem) và trạng thái tài sản (có thể bị khóa hoặc không).(bị khóa thì không rút - TH đặc biệt)
+- Cơ chế này sẽ so sánh current_debt với target_debt và take funds hoặc deposit một lượng fund mới cho strategy. Khi đó, strategy có thể yêu cầu một lượng maxium funds mà nó muốn nhận để invest và strategy cũng có thể từ chối freeing funds nếu funds đó đang bị lock(trường hợp đặc biệt).
 
 ### Reward Mechanism
 
