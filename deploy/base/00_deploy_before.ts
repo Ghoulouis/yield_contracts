@@ -7,5 +7,5 @@ const deploy: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
   const { deployer } = await getNamedAccounts();
   console.log(`Deployer: ${deployer}`);
 };
-deploy.tags = ["vault"];
+deploy.tags = ["before"];
 export default deploy;

@@ -17,7 +17,7 @@ const TEST_HDWALLET = {
   passphrase: "",
 };
 
-const accounts = [process.env.DEPLOYER!, process.env.OASIS_AGENT!, process.env.BENEFICIARY!];
+const accounts = [process.env.DEPLOYER!, process.env.TEST_AGENT!];
 
 const { INFURA_KEY } = process.env;
 
@@ -29,6 +29,12 @@ const config: HardhatUserConfig = {
       gasPrice: 100e9,
       live: false,
       deploy: ["deploy/hardhat"],
+    },
+    base: {
+      url: process.env.BASE_RPC_URL!,
+      accounts: accounts,
+      live: true,
+      deploy: ["deploy/base"],
     },
   },
   solidity: {
