@@ -289,7 +289,11 @@ contract Vault is
         address owner
     ) public override(ERC4626Upgradeable, IVault) returns (uint256) {
         ManagementFeeLogic.caculateManagementFee(vaultData);
-        uint256 shares = _convertToShares(assets, Math.Rounding.Ceil);
+        uint256 shares = ERC4626Logic.convertToShares(
+            vaultData,
+            assets,
+            Math.Rounding.Ceil
+        );
         return
             WithdrawLogic.executeRedeem(
                 vaultData,
@@ -367,6 +371,12 @@ contract Vault is
         DebtLogic.buyDebt(vaultData, strategy, amount);
     }
 
+    function setAutoAllocate(
+        bool autoAllocate
+    ) public onlyRole(Constants.ROLE_DEBT_MANAGER) {
+        ConfiguratorLogic.ExecuteSetAutoAllocate(vaultData, autoAllocate);
+    }
+
     // CONFIGURATOR MANAGEMENT
 
     function addStrategy(
@@ -376,26 +386,28 @@ contract Vault is
         ConfiguratorLogic.ExecuteAddStrategy(vaultData, strategy, addToQueue);
     }
 
-    function revokeStrategy(address strategy) external onlyRole(Constants.ROLE_REVOKE_STRATEGY_MANAGER)  {
+    function revokeStrategy(
+        address strategy
+    ) external onlyRole(Constants.ROLE_REVOKE_STRATEGY_MANAGER) {
         ConfiguratorLogic.ExecuteRevokeStrategy(vaultData, strategy, false);
     }
 
-    function forceRevokeStrategy(address strategy) external onlyRole(Constants.ROLE_REVOKE_STRATEGY_MANAGER)  {
+    function forceRevokeStrategy(
+        address strategy
+    ) external onlyRole(Constants.ROLE_REVOKE_STRATEGY_MANAGER) {
         ConfiguratorLogic.ExecuteRevokeStrategy(vaultData, strategy, true);
     }
 
     function setDefaultQueue(
         address[] calldata newDefaultQueue
-    ) external nonReentrant onlyRole(Constants.ROLE_QUEUE_MANAGER)  {
+    ) external nonReentrant onlyRole(Constants.ROLE_QUEUE_MANAGER) {
         ConfiguratorLogic.ExecuteSetDefaultQueue(vaultData, newDefaultQueue);
     }
 
-    function setUseDefaultQueue(bool useDefaultQueue) external onlyRole(Constants.ROLE_QUEUE_MANAGER)  {
+    function setUseDefaultQueue(
+        bool useDefaultQueue
+    ) external onlyRole(Constants.ROLE_QUEUE_MANAGER) {
         ConfiguratorLogic.ExecuteSetUseDefaultQueue(vaultData, useDefaultQueue);
-    }
-
-    function setAutoAllocate(bool autoAllocate) public onlyRole(Constants.ROLE_DEBT_MANAGER) {
-        ConfiguratorLogic.ExecuteSetAutoAllocate(vaultData, autoAllocate);
     }
 
     function setDepositLimit(
@@ -470,9 +482,18 @@ contract Vault is
         ConfiguratorLogic.ExecuteSetFeeRecipient(vaultData, newFeeRecipient);
     }
 
+    function setProfitMaxUnlockTime(
+        uint256 newProfitMaxUnlockTime
+    ) external onlyRole(Constants.ROLE_GOVERNANCE_MANAGER) {
+        ConfiguratorLogic.ExecuteSetProfitMaxUnlockTime(
+            vaultData,
+            newProfitMaxUnlockTime
+        );
+    }
+
     // VIEW FUNCTIONS
     function getDefaultQueue() external view returns (address[] memory) {
-        return vaultData.defaultQueue;  
+        return vaultData.defaultQueue;
     }
     function strategies(
         address strategy

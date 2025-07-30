@@ -201,4 +201,26 @@ library ConfiguratorLogic {
         vault.feeRecipient = newFeeRecipient;
         emit IVault.UpdateFeeRecipient(newFeeRecipient);
     }
+
+    function ExecuteSetProfitMaxUnlockTime(
+        DataTypes.VaultData storage vault,
+        uint256 newProfitMaxUnlockTime
+    ) external {
+        require(
+            newProfitMaxUnlockTime <= 31536000,
+            "Profit max unlock time too long"
+        );
+
+        if (newProfitMaxUnlockTime == 0) {
+            uint256 shareBalance = vault.balanceOf(address(this));
+            if (shareBalance > 0) {
+                vault._burn(address(this), shareBalance);
+            }
+            vault.profitUnlockingRate = 0;
+            vault.fullProfitUnlockDate = 0;
+        }
+
+        vault.profitMaxUnlockTime = newProfitMaxUnlockTime;
+        emit IVault.UpdateProfitMaxUnlockTime(newProfitMaxUnlockTime);
+    }
 }
