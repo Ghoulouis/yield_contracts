@@ -9,6 +9,6 @@ async function main() {
   const wallet = new ethers.Wallet(privateKey, ethers.provider);
   let vault = Vault__factory.connect((await get("TestVault")).address);
 
-  await deposit(await vault.getAddress(), ethers.parseUnits("2", 6), wallet);
+  //await deposit(await vault.getAddress(), ethers.parseUnits("2", 6), wallet);
 }
 main();

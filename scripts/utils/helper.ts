@@ -1,7 +1,5 @@
-import { addresses } from "./../../utils/address";
-import { Vault } from "./../../typechain-types/contracts/Vault";
 import { ethers } from "ethers";
-import { ERC20__factory, Vault__factory } from "../../typechain-types";
+import { ERC20__factory, Vault, Vault__factory } from "../../typechain-types";
 
 export const ROLES = {
   GOVERNANCE_MANAGER: ethers.keccak256(ethers.toUtf8Bytes("ROLE_GOVERNANCE_MANAGER")),
@@ -85,4 +83,23 @@ export async function setDebt(vaultAddress: string, strategy: string, amount: bi
   let tx = await vault.updateDebt(strategy, amount, 0);
   let receipt = await tx.wait();
   console.log(`Set debt tx: ${receipt!.hash}`);
+}
+
+export async function viewTvl(vault: Vault) {
+  let data = await vault.vaultData();
+  return data.totalDebt + data.totalIdle;
+}
+
+export async function viewApy(vault: Vault) {
+  let data = await vault.vaultData();
+
+  let sharesRewards = (data.profitUnlockingRate * 60n * 60n * 24n * 365n) / 1_000_000_000_000n;
+
+  let assetReward = await vault.convertToAssets(sharesRewards);
+  console.log(" asset Reward ", assetReward);
+  let tvl = data.totalDebt + data.totalIdle;
+
+  let apy = (assetReward * 10_000n) / tvl;
+
+  return (Number(apy) / 10_000) * 100;
 }
