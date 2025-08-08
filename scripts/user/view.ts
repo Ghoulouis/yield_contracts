@@ -15,5 +15,14 @@ async function main() {
 
   let apy = await viewApy(vault);
   console.log("Apy: ", apy);
+
+  let balance = await vault.balanceOf(wallet.address);
+  let balanceAsset = await vault.convertToAssets(balance);
+
+  console.log("Balance: ", balance);
+  console.log("Balance Asset: ", balanceAsset);
+
+  let data = await vault.vaultData();
+  console.table(data);
 }
 main();

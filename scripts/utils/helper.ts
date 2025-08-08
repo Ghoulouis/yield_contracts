@@ -62,6 +62,7 @@ export async function setRole(vaultAddress: string, receiver: string, role: stri
   let hasRole = await vault.hasRole(role, receiver);
   if (hasRole) {
     console.log("receiver has role ");
+    return;
   }
   if (!hasRoleGov) {
     throw Error("Signer hasn't GOV role");
@@ -92,11 +93,14 @@ export async function viewTvl(vault: Vault) {
 
 export async function viewApy(vault: Vault) {
   let data = await vault.vaultData();
-
+  console.log("rate ", data.profitUnlockingRate);
   let sharesRewards = (data.profitUnlockingRate * 60n * 60n * 24n * 365n) / 1_000_000_000_000n;
 
   let assetReward = await vault.convertToAssets(sharesRewards);
-  console.log(" asset Reward ", assetReward);
+
+  console.log("shareReward: ", sharesRewards);
+  console.log("assetReward: ", assetReward);
+
   let tvl = data.totalDebt + data.totalIdle;
 
   let apy = (assetReward * 10_000n) / tvl;
