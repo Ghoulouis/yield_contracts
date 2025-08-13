@@ -23,7 +23,7 @@ library Constants {
         keccak256("ROLE_ACCOUNTANT_MANAGER");
 
     bytes32 public constant ROLE_QUEUE_MANAGER =
-        keccak256("ROLE_ACCOUNTANT_MANAGER");
+        keccak256("ROLE_QUEUE_MANAGER");
 
     bytes32 public constant ROLE_REPORTING_MANAGER =
         keccak256("ROLE_REPORTING_MANAGER");

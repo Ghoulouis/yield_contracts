@@ -171,7 +171,7 @@ contract Vault is
     function maxMint(
         address user
     ) public view override(ERC4626Upgradeable, IERC4626) returns (uint256) {
-        return ERC4626Logic.maxDeposit(vaultData, user);
+        return ERC4626Logic.maxMint(vaultData, user);
     }
 
     function maxWithdraw(
@@ -294,17 +294,19 @@ contract Vault is
             assets,
             Math.Rounding.Ceil
         );
-        return
-            WithdrawLogic.executeRedeem(
-                vaultData,
-                _msgSender(),
-                receiver,
-                owner,
-                assets,
-                shares,
-                0,
-                new address[](0)
-            );
+
+        WithdrawLogic.executeRedeem(
+            vaultData,
+            _msgSender(),
+            receiver,
+            owner,
+            assets,
+            shares,
+            0,
+            new address[](0)
+        );
+
+        return shares;
     }
 
     function convertToAssets(

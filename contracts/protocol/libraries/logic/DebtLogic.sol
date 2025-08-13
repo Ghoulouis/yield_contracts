@@ -27,7 +27,6 @@ library DebtLogic {
         DataTypes.VaultData storage vault,
         address strategy
     ) external returns (uint256 gain, uint256 loss) {
-        require(strategy != address(this), "Invalid strategy");
         require(
             vault.strategies[strategy].activation != 0,
             "Inactive strategy"

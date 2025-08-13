@@ -39,7 +39,7 @@ library ERC4626Logic {
         address receiver
     ) external view returns (uint256) {
         uint256 maxDepositAmount = vault.maxDeposit(receiver);
-        return vault._convertToAssets(maxDepositAmount, Math.Rounding.Floor);
+        return vault._convertToShares(maxDepositAmount, Math.Rounding.Floor);
     }
 
     function maxWithdraw(
