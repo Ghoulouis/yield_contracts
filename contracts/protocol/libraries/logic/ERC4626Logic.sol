@@ -67,7 +67,11 @@ library ERC4626Logic {
             0,
             new address[](0)
         );
-        return vault._convertToShares(maxWithdrawAmount, Math.Rounding.Floor);
+        uint256 shares = vault._convertToShares(
+            maxWithdrawAmount,
+            Math.Rounding.Floor
+        );
+        return Math.min(shares, vault.balanceOf(owner));
     }
 
     function _maxWithdraw(
